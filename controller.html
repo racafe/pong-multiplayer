@@ -531,6 +531,12 @@
     const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
     const RECONNECT_INTERVAL_MS = 2000;
 
+    // Throttling state for paddle_move messages (~60fps = ~16.67ms)
+    const THROTTLE_INTERVAL_MS = 16;
+    let lastSendTime = 0;
+    let pendingPosition = null;
+    let throttleTimer = null;
+
     // ========================================
     // STATUS UI FUNCTIONS
     // ========================================
@@ -632,11 +638,46 @@
     }
 
     function sendPaddlePosition(position) {
-      if (ws && ws.readyState === WebSocket.OPEN && isConnected) {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !isConnected) {
+        return;
+      }
+
+      const roundedPosition = Math.round(position);
+      const now = performance.now();
+      const timeSinceLastSend = now - lastSendTime;
+
+      if (timeSinceLastSend >= THROTTLE_INTERVAL_MS) {
+        // Enough time has passed, send immediately
         ws.send(JSON.stringify({
           type: 'paddle_move',
-          data: { position: Math.round(position) }
+          data: { position: roundedPosition }
         }));
+        lastSendTime = now;
+        pendingPosition = null;
+
+        // Clear any pending throttle timer
+        if (throttleTimer) {
+          clearTimeout(throttleTimer);
+          throttleTimer = null;
+        }
+      } else {
+        // Throttled - save position and schedule send
+        pendingPosition = roundedPosition;
+
+        if (!throttleTimer) {
+          const delay = THROTTLE_INTERVAL_MS - timeSinceLastSend;
+          throttleTimer = setTimeout(() => {
+            throttleTimer = null;
+            if (pendingPosition !== null && ws && ws.readyState === WebSocket.OPEN && isConnected) {
+              ws.send(JSON.stringify({
+                type: 'paddle_move',
+                data: { position: pendingPosition }
+              }));
+              lastSendTime = performance.now();
+              pendingPosition = null;
+            }
+          }, delay);
+        }
       }
     }
 
