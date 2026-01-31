@@ -484,6 +484,9 @@
     // ========================================
     // CONFIGURATION
     // ========================================
+    const GAME_END_POSTMESSAGE_DELAY_MS = 5_000; // 5 seconds after game is over
+    let gameEndMessageTimeoutId = null;
+    
     const GAME_HOSTNAME = window.location.hostname;
     const IS_SSL = window.location.protocol === 'https:';
 
@@ -1384,11 +1387,26 @@
           // Show Play Again button and notify controllers
           showPlayAgainButton();
           notifyControllersGameOver(gameState.winner);
+          // Only relevant when embedded in an iframe (we notify the parent).
+          if (window.parent === window) return;
+
+          clearGameEndMessageTimeout();
+          gameEndMessageTimeoutId = setTimeout(() => {
+            sendGameEndMessageToParent();
+            gameEndMessageTimeoutId = null;
+          }, GAME_END_POSTMESSAGE_DELAY_MS);
         } else {
           // Play score sound and reset ball after delay
           playScoreSound();
           resetBallAfterScore(scorer);
         }
+      }
+    }
+
+    function sendGameEndMessageToParent() {
+      // Send gameEnd message to parent window if in iframe
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'gameEnd' }, '*');
       }
     }
 
