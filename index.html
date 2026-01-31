@@ -1,0 +1,3428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frogger - Game Screen</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a1a2e'/%3E%3Cpath d='M18 36c0 8 6 14 14 14s14-6 14-14V22c0-4-3-7-7-7H25c-4 0-7 3-7 7v14z' fill='%234ade80'/%3E%3Ccircle cx='26' cy='26' r='3' fill='%230b1220'/%3E%3Ccircle cx='38' cy='26' r='3' fill='%230b1220'/%3E%3Cpath d='M25 36c2 3 5 5 7 5s5-2 7-5' stroke='%230b1220' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #fff;
+    }
+
+    .connection-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+      padding: 40px;
+    }
+
+    .title {
+      font-size: 48px;
+      font-weight: bold;
+      color: #4ade80;
+      text-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 20px;
+    }
+
+    .qr-container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    #qrcode {
+      width: 200px;
+      height: 200px;
+    }
+
+    #qrcode canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .room-code-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .room-code-label {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .room-code {
+      font-size: 48px;
+      font-weight: bold;
+      letter-spacing: 12px;
+      color: #4ade80;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+    }
+
+    .status-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #f59e0b;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .status-dot.connected {
+      background: #4ade80;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    .status-text {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .status-text.connected {
+      color: #4ade80;
+    }
+
+    .instructions {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    .controller-url {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 20px;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Hidden game area - will be shown once connected */
+    .game-area {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+
+    .game-area.visible {
+      display: flex;
+    }
+
+    #gameCanvas {
+      /* Pixel-perfect rendering - no anti-aliasing */
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 4px solid #333;
+      box-shadow: 0 0 40px rgba(74, 222, 128, 0.3);
+    }
+
+    /* Sound toggle button */
+    .sound-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      z-index: 100;
+    }
+
+    .sound-toggle:hover {
+      background: rgba(0, 0, 0, 0.8);
+      border-color: rgba(74, 222, 128, 0.6);
+    }
+
+    .sound-toggle svg {
+      width: 24px;
+      height: 24px;
+      fill: #4ade80;
+    }
+
+    .sound-toggle.muted svg {
+      fill: #ff6b6b;
+    }
+  </style>
+</head>
+<body>
+  <div class="connection-screen" id="connectionScreen">
+    <h1 class="title">FROGGER</h1>
+    <p class="subtitle">Scan to connect your phone as a controller</p>
+
+    <div class="qr-container">
+      <div id="qrcode"></div>
+    </div>
+
+    <div class="room-code-container">
+      <span class="room-code-label">Room Code</span>
+      <span class="room-code" id="roomCode">----</span>
+    </div>
+
+    <div class="status-container">
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">Connecting to server...</span>
+      </div>
+    </div>
+
+    <p class="instructions">
+      Open the camera app on your phone and scan the QR code,
+      or visit the URL below and enter the room code manually.
+    </p>
+
+    <span class="controller-url" id="controllerUrl"></span>
+  </div>
+
+  <div class="game-area" id="gameArea">
+    <canvas id="gameCanvas"></canvas>
+    <button class="sound-toggle" id="soundToggle" title="Toggle Sound">
+      <svg id="soundOnIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+      <svg id="soundOffIcon" style="display: none;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- qrcode browser bundle from CDN (exposes global `QRCode`) -->
+  <!-- Note: newer qrcode versions removed `build/` bundles; pin to one that includes them. -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.2.2/build/qrcode.min.js"></script>
+
+  <script type="module">
+    // Configuration
+    const GAME_HOSTNAME = window.location.hostname;
+    const IS_SSL = window.location.protocol === 'https:';
+
+    // Detect if we're on localhost or a raw IP address
+    const IS_IP_HOST = /^[0-9.]+$/.test(GAME_HOSTNAME);
+    const IS_DEV_HOST = GAME_HOSTNAME === 'localhost' || IS_IP_HOST;
+
+    // WebSocket URL: use same-origin reverse proxy at /ws so we don't need a
+    // dedicated external port (important for PaaS like Coolify).
+    const WS_URL = `${IS_SSL ? 'wss' : 'ws'}://${window.location.host}/ws`;
+
+    // Controller URL: same host but different page
+    const CONTROLLER_BASE_URL = IS_SSL
+      ? `https://${GAME_HOSTNAME}`
+      : `http://${GAME_HOSTNAME}${IS_DEV_HOST ? ':' + window.location.port : ''}`;
+
+    // DOM elements
+    const connectionScreen = document.getElementById('connectionScreen');
+    const gameArea = document.getElementById('gameArea');
+    const qrcodeElement = document.getElementById('qrcode');
+    const roomCodeElement = document.getElementById('roomCode');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const controllerUrlElement = document.getElementById('controllerUrl');
+
+    // State
+    let ws = null;
+    let roomCode = null;
+    let isConnected = false;
+    let playerConnected = false;
+
+    // Update status display
+    function setStatus(text, isPlayerConnected = false) {
+      statusText.textContent = text;
+
+      if (isPlayerConnected) {
+        statusDot.classList.add('connected');
+        statusText.classList.add('connected');
+      } else {
+        statusDot.classList.remove('connected');
+        statusText.classList.remove('connected');
+      }
+    }
+
+    // Generate QR code for controller URL
+    function generateQRCode(code) {
+      const controllerUrl = `${CONTROLLER_BASE_URL}/controller.html?room=${code}`;
+
+      // Clear any existing QR code
+      qrcodeElement.innerHTML = '';
+
+      const qr = globalThis.QRCode;
+      if (!qr || typeof qr.toCanvas !== 'function') {
+        console.error('QR library not loaded (QRCode.toCanvas missing).');
+        controllerUrlElement.textContent = controllerUrl;
+        return;
+      }
+
+      // Generate new QR code
+      qr.toCanvas(controllerUrl, {
+        width: 200,
+        margin: 0,
+        color: {
+          dark: '#1a1a2e',
+          light: '#ffffff'
+        }
+      }, (error, canvas) => {
+        if (error) {
+          console.error('QR Code generation error:', error);
+          return;
+        }
+        qrcodeElement.appendChild(canvas);
+      });
+
+      // Update display URL
+      controllerUrlElement.textContent = controllerUrl;
+    }
+
+    // Update room code display
+    function updateRoomCode(code) {
+      roomCode = code;
+      roomCodeElement.textContent = code;
+      generateQRCode(code);
+    }
+
+    // Connect to WebSocket server
+    function connect() {
+      setStatus('Connecting to server...');
+
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        isConnected = true;
+        setStatus('Creating room...');
+
+        // Request a new room
+        ws.send(JSON.stringify({ type: 'create_room' }));
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleMessage(message);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setStatus('Connection error - retrying...');
+        isConnected = false;
+
+        // Retry connection after a delay
+        setTimeout(connect, 3000);
+      };
+
+      ws.onclose = () => {
+        if (isConnected) {
+          isConnected = false;
+          setStatus('Disconnected - reconnecting...');
+          setTimeout(connect, 2000);
+        }
+      };
+    }
+
+    // Handle incoming WebSocket messages
+    function handleMessage(message) {
+      switch (message.type) {
+        case 'room_created':
+          updateRoomCode(message.data.roomCode);
+          setStatus('Waiting for controller...');
+          break;
+
+        case 'player_joined':
+          playerConnected = true;
+          setStatus('Controller connected!', true);
+          break;
+
+        case 'player_disconnected':
+          playerConnected = false;
+          setStatus('Controller disconnected - waiting...', false);
+          break;
+
+        case 'error':
+          console.error('Server error:', message.data?.message);
+          setStatus(`Error: ${message.data?.message || 'Unknown error'}`);
+          break;
+
+        case 'reconnected':
+          setStatus(playerConnected ? 'Controller connected!' : 'Waiting for controller...', playerConnected);
+          break;
+
+        default:
+          // Forward other messages to game logic (future stories)
+          console.log('Game message:', message);
+          break;
+      }
+    }
+
+    // Initialize
+    connect();
+
+    // ========================================
+    // GAME CANVAS & SPRITE RENDERING SYSTEM
+    // ========================================
+
+    // Classic Frogger arcade proportions (224x256 original, scaled up)
+    const SCALE = 3; // Scale factor for modern displays
+    const CANVAS_WIDTH = 224 * SCALE;  // 672px
+    const CANVAS_HEIGHT = 256 * SCALE; // 768px
+    const TILE_SIZE = 16 * SCALE;      // 48px (each lane/tile is 16px in original)
+
+    // Lane configuration (14 lanes from bottom to top + header)
+    const LANES = {
+      HEADER: 0,           // Score/lives display area
+      HOME_ROW: 1,         // Goal lilypads (5 homes)
+      RIVER_START: 2,      // River lanes (5 lanes)
+      RIVER_END: 6,
+      MEDIAN: 7,           // Safe median zone
+      ROAD_START: 8,       // Road lanes (5 lanes)
+      ROAD_END: 12,
+      START_ZONE: 13,      // Frog start position (safe)
+      FOOTER: 14           // Bottom border
+    };
+
+    // Authentic Frogger Color Palette (based on arcade original)
+    const COLORS = {
+      // Background colors
+      BLACK: '#000000',
+      DARK_BLUE: '#000050',
+      WATER_BLUE: '#0000a8',
+      ROAD_GRAY: '#404040',
+      ROAD_DARK: '#282828',
+      GRASS_GREEN: '#00a800',
+      GRASS_DARK: '#006800',
+      MEDIAN_PURPLE: '#800080',
+
+      // Sprite colors
+      FROG_GREEN: '#00ff00',
+      FROG_LIGHT: '#80ff80',
+      FROG_DARK: '#008800',
+      FROG_EYE: '#ffffff',
+      FROG_PUPIL: '#000000',
+
+      // Car colors (multiple types)
+      CAR_RED: '#ff0000',
+      CAR_YELLOW: '#ffff00',
+      CAR_PINK: '#ff80ff',
+      CAR_WHITE: '#ffffff',
+      CAR_BLUE: '#0080ff',
+      CAR_ORANGE: '#ff8000',
+
+      // Truck colors
+      TRUCK_BODY: '#ff00ff',
+      TRUCK_CABIN: '#ff80ff',
+      TRUCK_DETAIL: '#800080',
+
+      // Log colors
+      LOG_BROWN: '#804000',
+      LOG_LIGHT: '#a06020',
+      LOG_DARK: '#603000',
+      LOG_BARK: '#402000',
+
+      // Turtle colors
+      TURTLE_GREEN: '#00a800',
+      TURTLE_SHELL: '#008000',
+      TURTLE_HEAD: '#80ff80',
+      TURTLE_LIGHT: '#00ff00',
+
+      // UI colors
+      UI_WHITE: '#ffffff',
+      UI_YELLOW: '#ffff00',
+      LILYPAD_GREEN: '#00a800',
+      LILYPAD_DARK: '#006800'
+    };
+
+    // Canvas setup
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+
+    // Disable image smoothing for pixel-perfect rendering
+    ctx.imageSmoothingEnabled = false;
+    ctx.mozImageSmoothingEnabled = false;
+    ctx.webkitImageSmoothingEnabled = false;
+    ctx.msImageSmoothingEnabled = false;
+
+    // ========================================
+    // SPRITE RENDERING UTILITIES
+    // ========================================
+
+    // Draw a single pixel (scaled)
+    function drawPixel(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+    }
+
+    // Draw a pixel array sprite at position
+    function drawSprite(sprite, x, y, flipX = false) {
+      const height = sprite.length;
+      const width = sprite[0].length;
+
+      for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) {
+          const color = sprite[row][flipX ? (width - 1 - col) : col];
+          if (color !== null && color !== 'transparent') {
+            const px = x + col;
+            const py = y + row;
+            drawPixel(px, py, color);
+          }
+        }
+      }
+    }
+
+    // ========================================
+    // SPRITE DEFINITIONS (16x16 pixel art)
+    // ========================================
+
+    // Shorthand color aliases for sprite definitions
+    const _ = null; // Transparent
+    const FG = COLORS.FROG_GREEN;
+    const FL = COLORS.FROG_LIGHT;
+    const FD = COLORS.FROG_DARK;
+    const FE = COLORS.FROG_EYE;
+    const FP = COLORS.FROG_PUPIL;
+    const CR = COLORS.CAR_RED;
+    const CY = COLORS.CAR_YELLOW;
+    const CP = COLORS.CAR_PINK;
+    const CW = COLORS.CAR_WHITE;
+    const CB = COLORS.CAR_BLUE;
+    const CO = COLORS.CAR_ORANGE;
+    const BK = COLORS.BLACK;
+    const TB = COLORS.TRUCK_BODY;
+    const TC = COLORS.TRUCK_CABIN;
+    const TD = COLORS.TRUCK_DETAIL;
+    const LB = COLORS.LOG_BROWN;
+    const LL = COLORS.LOG_LIGHT;
+    const LD = COLORS.LOG_DARK;
+    const LK = COLORS.LOG_BARK;
+    const TG = COLORS.TURTLE_GREEN;
+    const TS = COLORS.TURTLE_SHELL;
+    const TH = COLORS.TURTLE_HEAD;
+    const TL = COLORS.TURTLE_LIGHT;
+
+    // FROG SPRITES
+    const FROG_IDLE = [
+      [_, _, _, _, _, FG, FG, _, _, FG, FG, _, _, _, _, _],
+      [_, _, _, _, FG, FE, FE, FG, FG, FE, FE, FG, _, _, _, _],
+      [_, _, _, _, FG, FP, FE, FG, FG, FE, FP, FG, _, _, _, _],
+      [_, _, _, _, _, FG, FG, FG, FG, FG, FG, _, _, _, _, _],
+      [_, _, FG, _, _, FG, FG, FG, FG, FG, FG, _, _, FG, _, _],
+      [_, FG, FG, FG, FG, FL, FG, FG, FG, FG, FL, FG, FG, FG, FG, _],
+      [_, FG, _, FG, FG, FG, FG, FG, FG, FG, FG, FG, FG, _, FG, _],
+      [_, _, _, _, FG, FG, FG, FG, FG, FG, FG, FG, _, _, _, _],
+      [_, _, _, FG, FG, FG, FD, FD, FD, FD, FG, FG, FG, _, _, _],
+      [_, _, FG, FG, _, FG, FG, FG, FG, FG, FG, _, FG, FG, _, _],
+      [_, FG, FG, _, _, FG, FG, FG, FG, FG, FG, _, _, FG, FG, _],
+      [_, FG, _, _, _, FD, FG, FG, FG, FG, FD, _, _, _, FG, _],
+      [FG, FG, _, _, _, _, FG, FG, FG, FG, _, _, _, _, FG, FG],
+      [FG, _, _, _, _, _, FG, _, _, FG, _, _, _, _, _, FG],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    const FROG_HOP_1 = [
+      [_, _, _, _, _, FG, FG, _, _, FG, FG, _, _, _, _, _],
+      [_, _, _, _, FG, FE, FE, FG, FG, FE, FE, FG, _, _, _, _],
+      [_, _, _, _, FG, FP, FE, FG, FG, FE, FP, FG, _, _, _, _],
+      [_, _, _, _, _, FG, FG, FG, FG, FG, FG, _, _, _, _, _],
+      [_, FG, FG, _, _, FG, FG, FG, FG, FG, FG, _, _, FG, FG, _],
+      [FG, FG, FG, FG, FG, FL, FG, FG, FG, FG, FL, FG, FG, FG, FG, FG],
+      [FG, _, _, FG, FG, FG, FG, FG, FG, FG, FG, FG, FG, _, _, FG],
+      [_, _, _, _, FG, FG, FG, FG, FG, FG, FG, FG, _, _, _, _],
+      [_, _, _, _, FG, FG, FD, FD, FD, FD, FG, FG, _, _, _, _],
+      [_, _, _, _, _, FG, FG, FG, FG, FG, FG, _, _, _, _, _],
+      [_, _, _, _, _, FG, FG, FG, FG, FG, FG, _, _, _, _, _],
+      [_, _, _, _, FD, FG, FG, FG, FG, FG, FG, FD, _, _, _, _],
+      [_, _, _, FG, FG, _, FG, FG, FG, FG, _, FG, FG, _, _, _],
+      [_, _, FG, FG, _, _, FG, _, _, FG, _, _, FG, FG, _, _],
+      [_, FG, FG, _, _, _, _, _, _, _, _, _, _, FG, FG, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    const FROG_HOP_2 = [
+      [_, _, _, _, _, FG, FG, _, _, FG, FG, _, _, _, _, _],
+      [_, _, _, _, FG, FE, FE, FG, FG, FE, FE, FG, _, _, _, _],
+      [_, _, _, _, FG, FP, FE, FG, FG, FE, FP, FG, _, _, _, _],
+      [_, _, FG, _, _, FG, FG, FG, FG, FG, FG, _, _, FG, _, _],
+      [_, FG, FG, _, _, FG, FG, FG, FG, FG, FG, _, _, FG, FG, _],
+      [FG, FG, _, FG, FG, FL, FG, FG, FG, FG, FL, FG, FG, _, FG, FG],
+      [FG, _, _, FG, FG, FG, FG, FG, FG, FG, FG, FG, FG, _, _, FG],
+      [_, _, _, FG, FG, FG, FG, FG, FG, FG, FG, FG, FG, _, _, _],
+      [_, _, _, _, FG, FG, FD, FD, FD, FD, FG, FG, _, _, _, _],
+      [_, _, _, _, _, FG, FG, FG, FG, FG, FG, _, _, _, _, _],
+      [_, _, _, _, _, FD, FG, FG, FG, FG, FD, _, _, _, _, _],
+      [_, _, _, _, FG, FG, FG, _, _, FG, FG, FG, _, _, _, _],
+      [_, _, _, FG, FG, _, _, _, _, _, _, FG, FG, _, _, _],
+      [_, _, FG, FG, _, _, _, _, _, _, _, _, FG, FG, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // CAR SPRITES (different colors/types)
+    function createCarSprite(bodyColor, highlightColor) {
+      return [
+        [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+        [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+        [_, _, _, _, BK, BK, BK, BK, BK, BK, BK, BK, _, _, _, _],
+        [_, _, _, BK, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, BK, _, _, _],
+        [_, _, BK, bodyColor, highlightColor, highlightColor, bodyColor, bodyColor, highlightColor, highlightColor, bodyColor, bodyColor, bodyColor, BK, _, _],
+        [_, BK, bodyColor, bodyColor, CW, CW, bodyColor, bodyColor, CW, CW, bodyColor, bodyColor, bodyColor, bodyColor, BK, _],
+        [_, BK, bodyColor, bodyColor, CW, CW, bodyColor, bodyColor, CW, CW, bodyColor, bodyColor, bodyColor, bodyColor, BK, _],
+        [_, BK, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, BK, _],
+        [_, BK, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, BK, _],
+        [_, _, BK, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, bodyColor, BK, _, _],
+        [_, _, _, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, _, _, _],
+        [_, _, BK, BK, _, _, _, _, _, _, _, _, BK, BK, _, _],
+        [_, _, BK, BK, _, _, _, _, _, _, _, _, BK, BK, _, _],
+        [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+        [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+        [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+      ];
+    }
+
+    const CAR_RED_SPRITE = createCarSprite(CR, CW);
+    const CAR_YELLOW_SPRITE = createCarSprite(CY, CW);
+    const CAR_PINK_SPRITE = createCarSprite(CP, CW);
+    const CAR_BLUE_SPRITE = createCarSprite(CB, CW);
+    const CAR_ORANGE_SPRITE = createCarSprite(CO, CW);
+
+    // TRUCK SPRITE (wider vehicle, 32x16)
+    const TRUCK_SPRITE = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, BK, BK, BK, BK, BK, BK, BK, BK, BK, _, _, _, _, _, _],
+      [_, _, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, TB, TB, TB, TB, TB, TB, TB, TB, TB, BK, _, _, _, _, _],
+      [_, BK, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TC, TC, TB, TB, TC, TC, TB, TB, TB, BK, _, _, _, _],
+      [_, BK, TB, TD, TD, TD, TD, TD, TD, TD, TD, TD, TD, TD, TD, TB, TB, TB, CW, CW, TB, TB, CW, CW, TB, TB, TB, BK, _, _, _, _],
+      [_, BK, TB, TD, TD, TD, TD, TD, TD, TD, TD, TD, TD, TD, TD, TB, TB, TB, CW, CW, TB, TB, CW, CW, TB, TB, TB, BK, _, _, _, _],
+      [_, BK, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, BK, _, _, _, _],
+      [_, BK, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, BK, _, _, _, _],
+      [_, _, BK, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, TB, BK, _, _, _, _, _],
+      [_, _, _, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, BK, _, _, _, _, _, _],
+      [_, _, BK, BK, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, BK, BK, _, _, _, _, _, _],
+      [_, _, BK, BK, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, BK, BK, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // LOG SPRITES (different sizes: small 24px, medium 48px, large 72px in original)
+    function createLogSprite(widthTiles) {
+      const width = widthTiles * 16;
+      const sprite = [];
+
+      for (let y = 0; y < 16; y++) {
+        const row = [];
+        for (let x = 0; x < width; x++) {
+          // Top and bottom edges
+          if (y < 3 || y > 12) {
+            row.push(_);
+          }
+          // Bark edges
+          else if (y === 3 || y === 12) {
+            if (x < 2 || x >= width - 2) row.push(_);
+            else row.push(LK);
+          }
+          // Log body
+          else {
+            if (x < 2 || x >= width - 2) {
+              row.push(y === 7 || y === 8 ? LD : _);
+            } else if (x === 2 || x === width - 3) {
+              row.push(LD);
+            } else {
+              // Wood grain pattern
+              if (y === 7 || y === 8) {
+                row.push(LL);
+              } else if ((x + y) % 6 === 0) {
+                row.push(LD);
+              } else {
+                row.push(LB);
+              }
+            }
+          }
+        }
+        sprite.push(row);
+      }
+      return sprite;
+    }
+
+    const LOG_SMALL = createLogSprite(2);   // 32px wide
+    const LOG_MEDIUM = createLogSprite(3);  // 48px wide
+    const LOG_LARGE = createLogSprite(4);   // 64px wide
+
+    // TURTLE SPRITES (group of 2-3 turtles)
+    const TURTLE_SPRITE = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, TG, TG, _, _, TG, TG, _, _, _, _, _],
+      [_, _, _, _, TG, TS, TS, TG, TG, TS, TS, TG, _, _, _, _],
+      [_, _, _, TG, TS, TL, TS, TS, TS, TS, TL, TS, TG, _, _, _],
+      [_, _, TH, TG, TS, TS, TS, TS, TS, TS, TS, TS, TG, TH, _, _],
+      [_, _, TH, TS, TS, TS, TS, TS, TS, TS, TS, TS, TS, TH, _, _],
+      [_, _, _, TS, TS, TS, TS, TS, TS, TS, TS, TS, TS, _, _, _],
+      [_, _, _, TS, TS, TS, TS, TS, TS, TS, TS, TS, TS, _, _, _],
+      [_, _, TH, TS, TS, TS, TS, TS, TS, TS, TS, TS, TS, TH, _, _],
+      [_, _, TH, TG, TS, TS, TS, TS, TS, TS, TS, TS, TG, TH, _, _],
+      [_, _, _, TG, TS, TL, TS, TS, TS, TS, TL, TS, TG, _, _, _],
+      [_, _, _, _, TG, TS, TS, TG, TG, TS, TS, TG, _, _, _, _],
+      [_, _, _, _, _, TG, TG, _, _, TG, TG, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // Diving animation frames for turtles
+    const TURTLE_DIVING_1 = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, TG, TG, _, _, TG, TG, _, _, _, _, _],
+      [_, _, _, _, TG, TS, TS, TG, TG, TS, TS, TG, _, _, _, _],
+      [_, _, _, TG, TS, TL, TS, TS, TS, TS, TL, TS, TG, _, _, _],
+      [_, _, _, TG, TS, TS, TS, TS, TS, TS, TS, TS, TG, _, _, _],
+      [_, _, _, TS, TS, TS, TS, TS, TS, TS, TS, TS, TS, _, _, _],
+      [_, _, _, TS, TS, TS, TS, TS, TS, TS, TS, TS, TS, _, _, _],
+      [_, _, _, TG, TS, TS, TS, TS, TS, TS, TS, TS, TG, _, _, _],
+      [_, _, _, TG, TS, TL, TS, TS, TS, TS, TL, TS, TG, _, _, _],
+      [_, _, _, _, TG, TS, TS, TG, TG, TS, TS, TG, _, _, _, _],
+      [_, _, _, _, _, TG, TG, _, _, TG, TG, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    const TURTLE_DIVING_2 = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, TG, _, _, TG, _, _, _, _, _, _],
+      [_, _, _, _, _, TG, TS, TG, TG, TS, TG, _, _, _, _, _],
+      [_, _, _, _, TG, TS, TS, TS, TS, TS, TS, TG, _, _, _, _],
+      [_, _, _, _, TS, TS, TS, TS, TS, TS, TS, TS, _, _, _, _],
+      [_, _, _, _, TS, TS, TS, TS, TS, TS, TS, TS, _, _, _, _],
+      [_, _, _, _, TG, TS, TS, TS, TS, TS, TS, TG, _, _, _, _],
+      [_, _, _, _, _, TG, TS, TG, TG, TS, TG, _, _, _, _, _],
+      [_, _, _, _, _, _, TG, _, _, TG, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    const TURTLE_SUBMERGED = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // DEATH ANIMATION SPRITES (skull/explosion effect)
+    // Note: CW already defined above as CAR_WHITE
+    const DR = COLORS.CAR_RED;  // Death red
+
+    // Death frame 1 - initial impact flash
+    const DEATH_FRAME_1 = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, CW, _, _, _, _, _, _, CW, _, _, _, _],
+      [_, _, _, _, _, CW, _, _, _, _, CW, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, CW, CW, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, CW, DR, DR, DR, DR, CW, _, _, _, _, _],
+      [_, _, _, _, CW, DR, CW, DR, DR, CW, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, DR, DR, DR, DR, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, DR, DR, DR, DR, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, CW, CW, CW, CW, DR, CW, _, _, _, _],
+      [_, _, _, _, _, CW, DR, DR, DR, DR, CW, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, CW, CW, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, CW, _, _, _, _, CW, _, _, _, _, _],
+      [_, _, _, _, CW, _, _, _, _, _, _, CW, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // Death frame 2 - expanding skull
+    const DEATH_FRAME_2 = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, CW, _, _, _, _, _, _, _, _, CW, _, _, _],
+      [_, _, _, _, CW, _, _, _, _, _, _, CW, _, _, _, _],
+      [_, _, _, _, _, CW, CW, CW, CW, CW, CW, _, _, _, _, _],
+      [_, _, _, _, CW, DR, DR, DR, DR, DR, DR, CW, _, _, _, _],
+      [_, _, _, CW, DR, CW, CW, DR, DR, CW, CW, DR, CW, _, _, _],
+      [_, _, _, CW, DR, CW, CW, DR, DR, CW, CW, DR, CW, _, _, _],
+      [_, _, _, CW, DR, DR, DR, DR, DR, DR, DR, DR, CW, _, _, _],
+      [_, _, _, CW, DR, DR, DR, DR, DR, DR, DR, DR, CW, _, _, _],
+      [_, _, _, CW, DR, DR, CW, CW, CW, CW, DR, DR, CW, _, _, _],
+      [_, _, _, _, CW, DR, DR, DR, DR, DR, DR, CW, _, _, _, _],
+      [_, _, _, _, _, CW, CW, CW, CW, CW, CW, _, _, _, _, _],
+      [_, _, _, _, CW, _, _, _, _, _, _, CW, _, _, _, _],
+      [_, _, _, CW, _, _, _, _, _, _, _, _, CW, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // Death frame 3 - fading skull
+    const DEATH_FRAME_3 = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, CW, _, _, _, _, CW, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, CW, CW, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, CW, DR, DR, DR, DR, CW, _, _, _, _, _],
+      [_, _, _, _, CW, DR, CW, DR, DR, CW, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, CW, DR, DR, CW, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, DR, DR, DR, DR, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, DR, DR, DR, DR, DR, CW, _, _, _, _],
+      [_, _, _, _, CW, DR, CW, CW, CW, CW, DR, CW, _, _, _, _],
+      [_, _, _, _, _, CW, DR, DR, DR, DR, CW, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, CW, CW, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, CW, _, _, _, _, CW, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    // Death frame 4 - disappearing
+    const DEATH_FRAME_4 = [
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, _, _, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, CW, CW, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, _, _, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, CW, _, _, CW, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, CW, CW, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+      [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]
+    ];
+
+    const DEATH_SPRITES = [DEATH_FRAME_1, DEATH_FRAME_2, DEATH_FRAME_3, DEATH_FRAME_4];
+
+    // ========================================
+    // PIXEL ART TITLE LETTERS (8x8 pixel font for "FROGGER")
+    // ========================================
+
+    // Title letter color (bright green)
+    const TL_TITLE = COLORS.FROG_GREEN;
+    const TD2 = COLORS.FROG_DARK;
+
+    // Each letter is 8x8 pixels
+    const TITLE_F = [
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _]
+    ];
+
+    const TITLE_R = [
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _, _, _],
+      [TL_TITLE, TL_TITLE, _, TL_TITLE, TL_TITLE, _, _, _],
+      [TL_TITLE, TL_TITLE, _, _, TL_TITLE, TL_TITLE, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _]
+    ];
+
+    const TITLE_O = [
+      [_, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [_, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _]
+    ];
+
+    const TITLE_G = [
+      [_, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _],
+      [TL_TITLE, TL_TITLE, _, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, TL_TITLE, TL_TITLE, _],
+      [_, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _]
+    ];
+
+    const TITLE_E = [
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _, _, _],
+      [TL_TITLE, TL_TITLE, _, _, _, _, _, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _],
+      [TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, TL_TITLE, _]
+    ];
+
+    // Array of letters for "FROGGER"
+    const TITLE_LETTERS = [TITLE_F, TITLE_R, TITLE_O, TITLE_G, TITLE_G, TITLE_E, TITLE_R];
+
+    // ========================================
+    // GAME RENDERING FUNCTIONS
+    // ========================================
+
+    // Draw the game background (lanes)
+    function drawBackground() {
+      // Clear canvas
+      ctx.fillStyle = COLORS.BLACK;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Header area (score/time)
+      ctx.fillStyle = COLORS.DARK_BLUE;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, TILE_SIZE);
+
+      // Home row (goal area with lilypads)
+      ctx.fillStyle = COLORS.DARK_BLUE;
+      ctx.fillRect(0, TILE_SIZE, CANVAS_WIDTH, TILE_SIZE);
+
+      // Draw lilypad homes (5 goal spots)
+      for (let i = 0; i < 5; i++) {
+        const homeX = (i * 3 + 1) * TILE_SIZE - TILE_SIZE / 4;
+        drawLilypad(homeX, TILE_SIZE + 8 * SCALE);
+      }
+
+      // River lanes (water)
+      ctx.fillStyle = COLORS.WATER_BLUE;
+      ctx.fillRect(0, TILE_SIZE * 2, CANVAS_WIDTH, TILE_SIZE * 5);
+
+      // Median (safe zone between river and road)
+      drawGrassStripe(TILE_SIZE * 7);
+
+      // Road lanes
+      ctx.fillStyle = COLORS.ROAD_GRAY;
+      ctx.fillRect(0, TILE_SIZE * 8, CANVAS_WIDTH, TILE_SIZE * 5);
+
+      // Road lane markings (dashed lines)
+      ctx.fillStyle = COLORS.UI_WHITE;
+      for (let lane = 0; lane < 4; lane++) {
+        const y = TILE_SIZE * (8.5 + lane) + TILE_SIZE / 2 - 2 * SCALE;
+        for (let dash = 0; dash < 14; dash++) {
+          ctx.fillRect(dash * TILE_SIZE + 16 * SCALE, y, 16 * SCALE, 2 * SCALE);
+        }
+      }
+
+      // Start zone (grass)
+      drawGrassStripe(TILE_SIZE * 13);
+
+      // Footer
+      ctx.fillStyle = COLORS.DARK_BLUE;
+      ctx.fillRect(0, TILE_SIZE * 14, CANVAS_WIDTH, TILE_SIZE);
+    }
+
+    // Draw a grass stripe
+    function drawGrassStripe(y) {
+      ctx.fillStyle = COLORS.GRASS_GREEN;
+      ctx.fillRect(0, y, CANVAS_WIDTH, TILE_SIZE);
+
+      // Add grass texture
+      ctx.fillStyle = COLORS.GRASS_DARK;
+      for (let x = 0; x < CANVAS_WIDTH; x += 8 * SCALE) {
+        ctx.fillRect(x, y + 2 * SCALE, 2 * SCALE, 4 * SCALE);
+        ctx.fillRect(x + 4 * SCALE, y + TILE_SIZE - 6 * SCALE, 2 * SCALE, 4 * SCALE);
+      }
+    }
+
+    // Draw a lilypad (goal)
+    function drawLilypad(x, y) {
+      ctx.fillStyle = COLORS.LILYPAD_GREEN;
+      ctx.beginPath();
+      ctx.arc(x + 24 * SCALE, y + 12 * SCALE, 20 * SCALE, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = COLORS.LILYPAD_DARK;
+      ctx.beginPath();
+      ctx.arc(x + 24 * SCALE, y + 12 * SCALE, 14 * SCALE, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = COLORS.DARK_BLUE;
+      ctx.beginPath();
+      ctx.arc(x + 24 * SCALE, y + 12 * SCALE, 8 * SCALE, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // ========================================
+    // SPRITE DRAWING API (for game logic)
+    // ========================================
+
+    // Sprite collections for external use
+    window.FroggerSprites = {
+      // Configuration
+      SCALE,
+      TILE_SIZE,
+      CANVAS_WIDTH,
+      CANVAS_HEIGHT,
+      COLORS,
+      LANES,
+
+      // Frog sprites
+      frog: {
+        idle: FROG_IDLE,
+        hop1: FROG_HOP_1,
+        hop2: FROG_HOP_2
+      },
+
+      // Car sprites
+      cars: {
+        red: CAR_RED_SPRITE,
+        yellow: CAR_YELLOW_SPRITE,
+        pink: CAR_PINK_SPRITE,
+        blue: CAR_BLUE_SPRITE,
+        orange: CAR_ORANGE_SPRITE
+      },
+
+      // Truck sprite
+      truck: TRUCK_SPRITE,
+
+      // Log sprites
+      logs: {
+        small: LOG_SMALL,
+        medium: LOG_MEDIUM,
+        large: LOG_LARGE
+      },
+
+      // Turtle sprites
+      turtles: {
+        normal: TURTLE_SPRITE,
+        diving1: TURTLE_DIVING_1,
+        diving2: TURTLE_DIVING_2,
+        submerged: TURTLE_SUBMERGED
+      },
+
+      // Rendering functions
+      drawSprite,
+      drawBackground,
+      drawPixel,
+
+      // Draw frog at position
+      drawFrog(x, y, frame = 'idle', flipX = false) {
+        const sprite = this.frog[frame] || this.frog.idle;
+        drawSprite(sprite, x, y, flipX);
+      },
+
+      // Draw car at position
+      drawCar(x, y, type = 'red', flipX = false) {
+        const sprite = this.cars[type] || this.cars.red;
+        drawSprite(sprite, x, y, flipX);
+      },
+
+      // Draw truck at position
+      drawTruck(x, y, flipX = false) {
+        drawSprite(this.truck, x, y, flipX);
+      },
+
+      // Draw log at position
+      drawLog(x, y, size = 'medium') {
+        const sprite = this.logs[size] || this.logs.medium;
+        drawSprite(sprite, x, y);
+      },
+
+      // Draw turtle group at position
+      drawTurtle(x, y, frame = 'normal') {
+        const sprite = this.turtles[frame] || this.turtles.normal;
+        drawSprite(sprite, x, y);
+      },
+
+      // Draw death animation frame
+      drawDeath(x, y, frameIndex) {
+        const frame = Math.min(frameIndex, DEATH_SPRITES.length - 1);
+        const sprite = DEATH_SPRITES[frame];
+        drawSprite(sprite, x, y);
+      },
+
+      // Draw a life indicator (small frog icon)
+      drawLifeIcon(x, y) {
+        // Small 8x8 frog icon for lives display
+        const smallFrog = [
+          [_, FG, FG, _, _, FG, FG, _],
+          [FG, FE, FE, FG, FG, FE, FE, FG],
+          [_, FG, FG, FG, FG, FG, FG, _],
+          [FG, FG, FG, FG, FG, FG, FG, FG],
+          [_, FG, FG, FG, FG, FG, FG, _],
+          [FG, _, FG, FG, FG, FG, _, FG],
+          [FG, _, _, FG, FG, _, _, FG],
+          [_, _, _, _, _, _, _, _]
+        ];
+
+        // Draw at half scale for compact display
+        for (let row = 0; row < smallFrog.length; row++) {
+          for (let col = 0; col < smallFrog[0].length; col++) {
+            const color = smallFrog[row][col];
+            if (color !== null) {
+              ctx.fillStyle = color;
+              ctx.fillRect(
+                x * SCALE + col * SCALE,
+                y * SCALE + row * SCALE,
+                SCALE,
+                SCALE
+              );
+            }
+          }
+        }
+      },
+
+      // Clear canvas
+      clear() {
+        ctx.fillStyle = COLORS.BLACK;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      },
+
+      // Get canvas context for advanced rendering
+      getContext() {
+        return ctx;
+      }
+    };
+
+    // Initial render of background (shown on connection screen)
+    drawBackground();
+
+    // ========================================
+    // SOUND SYSTEM - Web Audio API Retro Sounds
+    // ========================================
+
+    // Audio context (created on first user interaction)
+    let audioContext = null;
+    let soundEnabled = true;
+    let musicEnabled = true;
+    let masterGain = null;
+    let musicGain = null;
+    let currentMusicOscillators = [];
+
+    // Sound toggle button elements
+    const soundToggle = document.getElementById('soundToggle');
+    const soundOnIcon = document.getElementById('soundOnIcon');
+    const soundOffIcon = document.getElementById('soundOffIcon');
+
+    // Initialize audio context (must be called from user interaction)
+    function initAudio() {
+      if (audioContext) return;
+
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 0.3; // Master volume
+        masterGain.connect(audioContext.destination);
+
+        musicGain = audioContext.createGain();
+        musicGain.gain.value = 0.15; // Music volume (quieter)
+        musicGain.connect(masterGain);
+
+        console.log('Audio system initialized');
+      } catch (e) {
+        console.warn('Could not initialize audio:', e);
+      }
+    }
+
+    // Toggle sound on/off
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      musicEnabled = soundEnabled;
+
+      if (soundToggle) {
+        if (soundEnabled) {
+          soundToggle.classList.remove('muted');
+          soundOnIcon.style.display = 'block';
+          soundOffIcon.style.display = 'none';
+          // Resume music if it was playing
+          if (screenState === 'playing' && !gameState.isGameOver) {
+            startBackgroundMusic();
+          }
+        } else {
+          soundToggle.classList.add('muted');
+          soundOnIcon.style.display = 'none';
+          soundOffIcon.style.display = 'block';
+          stopBackgroundMusic();
+        }
+      }
+    }
+
+    // Sound toggle event listener
+    if (soundToggle) {
+      soundToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        initAudio();
+        toggleSound();
+      });
+    }
+
+    // Play a tone with envelope (attack, decay)
+    function playTone(frequency, duration, type = 'square', attack = 0.01, decay = 0.1, volume = 1) {
+      if (!audioContext || !soundEnabled) return;
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + attack);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration - decay);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(masterGain);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    }
+
+    // Play noise burst (for splash, squash effects)
+    function playNoise(duration, lowpass = 2000, volume = 1) {
+      if (!audioContext || !soundEnabled) return;
+
+      const bufferSize = audioContext.sampleRate * duration;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = audioContext.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = audioContext.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(lowpass, audioContext.currentTime);
+
+      const gainNode = audioContext.createGain();
+      gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+
+      noise.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(masterGain);
+
+      noise.start();
+    }
+
+    // === SOUND EFFECTS ===
+
+    // Hop sound - quick upward chirp
+    function playHopSound() {
+      if (!audioContext || !soundEnabled) return;
+
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(200, audioContext.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.05);
+
+      gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.08);
+    }
+
+    // Splash sound - noise with descending pitch
+    function playSplashSound() {
+      if (!audioContext || !soundEnabled) return;
+
+      // White noise component
+      playNoise(0.3, 3000, 0.4);
+
+      // Bubbling descending tone
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, audioContext.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.3);
+
+      gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.3);
+    }
+
+    // Squash sound - harsh noise burst with low frequency thud
+    function playSquashSound() {
+      if (!audioContext || !soundEnabled) return;
+
+      // Impact noise
+      playNoise(0.15, 1500, 0.5);
+
+      // Low thud
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(100, audioContext.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(30, audioContext.currentTime + 0.1);
+
+      gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.15);
+    }
+
+    // Goal jingle - triumphant ascending arpeggio
+    function playGoalSound() {
+      if (!audioContext || !soundEnabled) return;
+
+      // C major arpeggio: C5, E5, G5, C6
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      const noteDuration = 0.12;
+
+      notes.forEach((freq, i) => {
+        const startTime = audioContext.currentTime + i * noteDuration;
+
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, startTime);
+
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.25, startTime + 0.02);
+        gain.gain.linearRampToValueAtTime(0.15, startTime + noteDuration * 0.8);
+        gain.gain.linearRampToValueAtTime(0, startTime + noteDuration);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(startTime);
+        osc.stop(startTime + noteDuration + 0.05);
+      });
+
+      // Final chord
+      const chordTime = audioContext.currentTime + notes.length * noteDuration;
+      [523.25, 659.25, 783.99].forEach(freq => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, chordTime);
+
+        gain.gain.setValueAtTime(0, chordTime);
+        gain.gain.linearRampToValueAtTime(0.15, chordTime + 0.02);
+        gain.gain.linearRampToValueAtTime(0, chordTime + 0.4);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(chordTime);
+        osc.stop(chordTime + 0.5);
+      });
+    }
+
+    // Game over melody - descending sad tune
+    function playGameOverMelody() {
+      if (!audioContext || !soundEnabled) return;
+
+      // Stop background music first
+      stopBackgroundMusic();
+
+      // Descending minor melody
+      const notes = [
+        { freq: 392.00, dur: 0.3 },  // G4
+        { freq: 349.23, dur: 0.3 },  // F4
+        { freq: 329.63, dur: 0.3 },  // E4
+        { freq: 293.66, dur: 0.5 },  // D4
+        { freq: 261.63, dur: 0.8 }   // C4 (held)
+      ];
+
+      let time = audioContext.currentTime;
+
+      notes.forEach((note, i) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(note.freq, time);
+
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.3, time + 0.03);
+        gain.gain.setValueAtTime(0.25, time + note.dur * 0.7);
+        gain.gain.linearRampToValueAtTime(0, time + note.dur);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(time);
+        osc.stop(time + note.dur + 0.1);
+
+        time += note.dur;
+      });
+    }
+
+    // Timeout death sound - ticking then buzzer
+    function playTimeoutSound() {
+      if (!audioContext || !soundEnabled) return;
+
+      // Final buzzer
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, audioContext.currentTime);
+
+      gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.4);
+    }
+
+    // Difficulty level up sound
+    function playLevelUpSound() {
+      if (!audioContext || !soundEnabled) return;
+
+      // Ascending fanfare
+      const notes = [392.00, 493.88, 587.33, 783.99]; // G4, B4, D5, G5
+      const noteDuration = 0.1;
+
+      notes.forEach((freq, i) => {
+        const startTime = audioContext.currentTime + i * noteDuration;
+
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, startTime);
+
+        gain.gain.setValueAtTime(0.25, startTime);
+        gain.gain.linearRampToValueAtTime(0, startTime + noteDuration * 0.9);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(startTime);
+        osc.stop(startTime + noteDuration);
+      });
+    }
+
+    // === BACKGROUND MUSIC ===
+
+    // Simple 8-bit style background loop
+    let musicInterval = null;
+    let musicNoteIndex = 0;
+
+    // Background music pattern (bass line + melody)
+    const MUSIC_BASS = [
+      130.81, 130.81, 146.83, 146.83, // C3, C3, D3, D3
+      164.81, 164.81, 146.83, 146.83, // E3, E3, D3, D3
+      130.81, 130.81, 174.61, 174.61, // C3, C3, F3, F3
+      164.81, 146.83, 130.81, 130.81  // E3, D3, C3, C3
+    ];
+
+    const MUSIC_MELODY = [
+      523.25, 0, 587.33, 0,           // C5, rest, D5, rest
+      659.25, 0, 587.33, 0,           // E5, rest, D5, rest
+      523.25, 0, 698.46, 0,           // C5, rest, F5, rest
+      659.25, 587.33, 523.25, 0       // E5, D5, C5, rest
+    ];
+
+    function playMusicNote() {
+      if (!audioContext || !musicEnabled) return;
+
+      const bassFreq = MUSIC_BASS[musicNoteIndex % MUSIC_BASS.length];
+      const melodyFreq = MUSIC_MELODY[musicNoteIndex % MUSIC_MELODY.length];
+
+      // Bass note
+      if (bassFreq > 0) {
+        const bassOsc = audioContext.createOscillator();
+        const bassGain = audioContext.createGain();
+
+        bassOsc.type = 'triangle';
+        bassOsc.frequency.setValueAtTime(bassFreq, audioContext.currentTime);
+
+        bassGain.gain.setValueAtTime(0.15, audioContext.currentTime);
+        bassGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.15);
+
+        bassOsc.connect(bassGain);
+        bassGain.connect(musicGain);
+
+        bassOsc.start();
+        bassOsc.stop(audioContext.currentTime + 0.18);
+      }
+
+      // Melody note
+      if (melodyFreq > 0) {
+        const melodyOsc = audioContext.createOscillator();
+        const melodyGain = audioContext.createGain();
+
+        melodyOsc.type = 'square';
+        melodyOsc.frequency.setValueAtTime(melodyFreq, audioContext.currentTime);
+
+        melodyGain.gain.setValueAtTime(0.1, audioContext.currentTime);
+        melodyGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.12);
+
+        melodyOsc.connect(melodyGain);
+        melodyGain.connect(musicGain);
+
+        melodyOsc.start();
+        melodyOsc.stop(audioContext.currentTime + 0.15);
+      }
+
+      musicNoteIndex++;
+    }
+
+    function startBackgroundMusic() {
+      if (!audioContext || !musicEnabled || musicInterval) return;
+
+      musicNoteIndex = 0;
+      musicInterval = setInterval(playMusicNote, 200); // 300 BPM (200ms per eighth note)
+    }
+
+    function stopBackgroundMusic() {
+      if (musicInterval) {
+        clearInterval(musicInterval);
+        musicInterval = null;
+      }
+    }
+
+    // Export sound functions
+    window.FroggerSounds = {
+      init: initAudio,
+      toggle: toggleSound,
+      hop: playHopSound,
+      splash: playSplashSound,
+      squash: playSquashSound,
+      goal: playGoalSound,
+      gameOver: playGameOverMelody,
+      timeout: playTimeoutSound,
+      levelUp: playLevelUpSound,
+      startMusic: startBackgroundMusic,
+      stopMusic: stopBackgroundMusic,
+      get enabled() { return soundEnabled; },
+      get musicEnabled() { return musicEnabled; }
+    };
+
+    // ========================================
+    // GAME STATE & FROG MOVEMENT LOGIC
+    // ========================================
+
+    // Grid-based position system (in original 16px tile units)
+    const GRID_COLS = 14;  // 224 / 16 = 14 columns
+    const GRID_ROWS = 16;  // 256 / 16 = 16 rows
+
+    // Game state - Lives system + Timer and Scoring
+    const gameState = {
+      lives: 3,
+      maxLives: 3,
+      isGameOver: false,
+      isDying: false,
+      deathTimer: 0,
+      deathCause: null,
+
+      // Timer system
+      timeRemaining: 30000,     // 30 seconds in milliseconds
+      maxTime: 30000,           // Maximum time per life
+
+      // Scoring system
+      score: 0,
+      highestRow: 13,          // Track highest row reached this life (lower number = further progress)
+      frogsHome: 0,            // Number of frogs successfully reached home
+      difficultyLevel: 1,      // Increases as frogs reach home
+
+      // Difficulty visual feedback
+      difficultyFlashTimer: 0,  // Timer for screen flash effect when difficulty increases
+      difficultyFlashDuration: 500,  // Flash duration in ms
+
+      // High score entry state
+      isEnteringInitials: false,  // True when player is entering initials
+      initials: ['A', 'A', 'A'],  // Current initials being entered
+      currentInitialIndex: 0,     // Which initial is currently being edited (0, 1, or 2)
+      qualifiesForHighScore: false // Whether current score qualifies for leaderboard
+    };
+
+    // ========================================
+    // GAME OVER FLOW TIMERS
+    // ========================================
+
+    const INITIALS_ENTRY_TIMEOUT_MS = 30_000; // 30 seconds to save initials
+    const GAME_END_POSTMESSAGE_DELAY_MS = 5_000; // 5 seconds after showing highscores
+
+    let initialsEntryTimeoutId = null;
+    let gameEndMessageTimeoutId = null;
+    let gameOverHighscoresShownOnce = false;
+
+    function clearInitialsEntryTimeout() {
+      if (initialsEntryTimeoutId) {
+        clearTimeout(initialsEntryTimeoutId);
+        initialsEntryTimeoutId = null;
+      }
+    }
+
+    function clearGameEndMessageTimeout() {
+      if (gameEndMessageTimeoutId) {
+        clearTimeout(gameEndMessageTimeoutId);
+        gameEndMessageTimeoutId = null;
+      }
+    }
+
+    function resetGameOverFlowTimers() {
+      clearInitialsEntryTimeout();
+      clearGameEndMessageTimeout();
+      gameOverHighscoresShownOnce = false;
+    }
+
+    function startInitialsEntryTimeout() {
+      clearInitialsEntryTimeout();
+
+      initialsEntryTimeoutId = setTimeout(() => {
+        // If we're still on the initials-entry screen after 30s, end the save window.
+        if (!gameState.isGameOver || !gameState.isEnteringInitials) return;
+
+        console.log('Initials entry timed out - skipping save');
+        gameState.isEnteringInitials = false;
+        gameState.qualifiesForHighScore = false;
+        initialsEntryTimeoutId = null;
+      }, INITIALS_ENTRY_TIMEOUT_MS);
+    }
+
+    function sendGameEndMessageToParent() {
+      // Send gameEnd message to parent window if in iframe
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'gameEnd' }, '*');
+      }
+    }
+
+    function noteGameOverHighscoresShown() {
+      if (gameOverHighscoresShownOnce) return;
+      gameOverHighscoresShownOnce = true;
+
+      // Only relevant when embedded in an iframe (we notify the parent).
+      if (window.parent === window) return;
+
+      clearGameEndMessageTimeout();
+      gameEndMessageTimeoutId = setTimeout(() => {
+        sendGameEndMessageToParent();
+        gameEndMessageTimeoutId = null;
+      }, GAME_END_POSTMESSAGE_DELAY_MS);
+    }
+
+    // High score system
+    const HIGH_SCORE_KEY = 'frogger_high_scores';
+    const MAX_HIGH_SCORES = 10;
+
+    // Load high scores from localStorage
+    function loadHighScores() {
+      try {
+        const stored = localStorage.getItem(HIGH_SCORE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (e) {
+        console.warn('Could not load high scores:', e);
+      }
+      // Return default empty leaderboard
+      return [];
+    }
+
+    // Save high scores to localStorage
+    function saveHighScores(scores) {
+      try {
+        localStorage.setItem(HIGH_SCORE_KEY, JSON.stringify(scores));
+      } catch (e) {
+        console.warn('Could not save high scores:', e);
+      }
+    }
+
+    // Check if score qualifies for top 10
+    function qualifiesForLeaderboard(score) {
+      if (score <= 0) return false;
+      const highScores = loadHighScores();
+      if (highScores.length < MAX_HIGH_SCORES) return true;
+      return score > highScores[highScores.length - 1].score;
+    }
+
+    // Add a new high score entry
+    function addHighScore(initials, score) {
+      const highScores = loadHighScores();
+      highScores.push({
+        initials: initials.join(''),
+        score: score,
+        date: new Date().toISOString()
+      });
+      // Sort by score descending
+      highScores.sort((a, b) => b.score - a.score);
+      // Keep only top 10
+      const trimmed = highScores.slice(0, MAX_HIGH_SCORES);
+      saveHighScores(trimmed);
+      return trimmed;
+    }
+
+    // Get rank of a score (1-indexed, or 0 if not in top 10)
+    function getScoreRank(score) {
+      const highScores = loadHighScores();
+      for (let i = 0; i < highScores.length; i++) {
+        if (score > highScores[i].score) {
+          return i + 1;
+        }
+      }
+      if (highScores.length < MAX_HIGH_SCORES) {
+        return highScores.length + 1;
+      }
+      return 0;
+    }
+
+    // Difficulty progression constants
+    const MAX_DIFFICULTY = 10;            // Cap difficulty level
+    const SPEED_INCREASE_PER_LEVEL = 0.08; // 8% speed increase per level
+    const GAP_DECREASE_PER_LEVEL = 0.05;   // 5% gap decrease per level
+    const DIVE_SPEED_INCREASE = 0.1;       // 10% faster dive cycle per level
+
+    // Get speed multiplier for current difficulty
+    function getDifficultySpeedMultiplier() {
+      return 1 + (gameState.difficultyLevel - 1) * SPEED_INCREASE_PER_LEVEL;
+    }
+
+    // Get gap multiplier for current difficulty (smaller = harder)
+    function getDifficultyGapMultiplier() {
+      return Math.max(0.5, 1 - (gameState.difficultyLevel - 1) * GAP_DECREASE_PER_LEVEL);
+    }
+
+    // Get dive cycle multiplier for turtles (smaller = faster diving)
+    function getDifficultyDiveMultiplier() {
+      return Math.max(0.5, 1 - (gameState.difficultyLevel - 1) * DIVE_SPEED_INCREASE);
+    }
+
+    // Scoring constants
+    const SCORE_PER_ROW = 10;           // Points for each row advanced
+    const TIME_BONUS_MULTIPLIER = 10;    // Points per second remaining when reaching goal
+    const BASE_GOAL_BONUS = 50;          // Bonus for reaching a home
+
+    // Death animation configuration
+    const DEATH_ANIMATION_DURATION = 800; // ms
+    const DEATH_FRAMES = 4; // Number of death animation frames
+
+    // Frog state
+    const frog = {
+      // Grid position (in tile units, 0-indexed)
+      gridX: 7,           // Start at center (column 7 of 14)
+      gridY: 13,          // Start zone (row 13)
+
+      // Pixel position (for animation interpolation)
+      x: 7 * 16,          // Current pixel X (in original scale)
+      y: 13 * 16,         // Current pixel Y (in original scale)
+
+      // Target position for hop animation
+      targetX: 7 * 16,
+      targetY: 13 * 16,
+
+      // Direction frog is facing: 'up', 'down', 'left', 'right'
+      facing: 'up',
+
+      // Animation state
+      isHopping: false,
+      hopProgress: 0,     // 0 to 1 during hop animation
+      hopFrame: 'idle',   // 'idle', 'hop1', 'hop2'
+
+      // Movement locked during hop
+      canMove: true
+    };
+
+    // Hop animation configuration
+    const HOP_DURATION_MS = 150;  // Duration of hop animation
+    const HOP_DISTANCE = 16;      // One tile (in original pixel units)
+
+    // Game boundaries (in grid units)
+    const BOUNDS = {
+      minX: 0,
+      maxX: GRID_COLS - 1,  // 13
+      minY: 1,              // Can't go into header (row 0)
+      maxY: 13              // Can't go below start zone
+    };
+
+    // Convert grid position to pixel position
+    function gridToPixel(gridPos) {
+      return gridPos * 16;
+    }
+
+    // Move frog in a direction
+    function moveFrog(direction) {
+      if (!frog.canMove || frog.isHopping) {
+        return; // Ignore input while hopping
+      }
+
+      // Calculate new grid position
+      let newGridX = frog.gridX;
+      let newGridY = frog.gridY;
+
+      switch (direction) {
+        case 'up':
+          newGridY = frog.gridY - 1;
+          break;
+        case 'down':
+          newGridY = frog.gridY + 1;
+          break;
+        case 'left':
+          newGridX = frog.gridX - 1;
+          break;
+        case 'right':
+          newGridX = frog.gridX + 1;
+          break;
+      }
+
+      // Update facing direction regardless of whether move is valid
+      frog.facing = direction;
+
+      // Check boundaries
+      if (newGridX < BOUNDS.minX || newGridX > BOUNDS.maxX ||
+          newGridY < BOUNDS.minY || newGridY > BOUNDS.maxY) {
+        return; // Can't move outside boundaries
+      }
+
+      // Start hop animation
+      frog.gridX = newGridX;
+      frog.gridY = newGridY;
+      frog.targetX = gridToPixel(newGridX);
+      frog.targetY = gridToPixel(newGridY);
+      frog.isHopping = true;
+      frog.hopProgress = 0;
+      frog.canMove = false;
+
+      // Play hop sound
+      playHopSound();
+
+      // Hop animation will be handled in game loop
+    }
+
+    // Reset frog to starting position
+    function resetFrog() {
+      frog.gridX = 7;
+      frog.gridY = 13;
+      frog.x = gridToPixel(frog.gridX);
+      frog.y = gridToPixel(frog.gridY);
+      frog.targetX = frog.x;
+      frog.targetY = frog.y;
+      frog.facing = 'up';
+      frog.isHopping = false;
+      frog.hopProgress = 0;
+      frog.hopFrame = 'idle';
+      frog.canMove = true;
+    }
+
+    // ========================================
+    // GAME LOOP & ANIMATION
+    // ========================================
+
+    let lastFrameTime = 0;
+    let gameRunning = false;
+
+    // Screen state machine: 'waiting' | 'ready' | 'playing' | 'paused' | 'game-over'
+    // - waiting: Waiting for controller to connect (shows title + QR)
+    // - ready: Controller connected, waiting for input to start (shows title + "Press any direction")
+    // - playing: Active gameplay
+    // - paused: Game paused (not implemented yet)
+    // - game-over: Game over screen (uses existing isGameOver logic)
+    let screenState = 'waiting';
+
+    // Blinking timer for "Press any direction to start" text
+    let blinkTimer = 0;
+    const BLINK_INTERVAL = 500; // ms
+
+    // Update timer countdown
+    function updateTimer(deltaTime) {
+      gameState.timeRemaining -= deltaTime;
+
+      if (gameState.timeRemaining <= 0) {
+        gameState.timeRemaining = 0;
+        handleFrogDeath('timeout');
+      }
+    }
+
+    // Reset timer for new life
+    function resetTimer() {
+      gameState.timeRemaining = gameState.maxTime;
+    }
+
+    // Award row advancement points
+    function checkRowAdvancement() {
+      // Only award points for forward progress (lower row numbers = further up)
+      if (frog.gridY < gameState.highestRow) {
+        const rowsAdvanced = gameState.highestRow - frog.gridY;
+        gameState.score += rowsAdvanced * SCORE_PER_ROW * gameState.difficultyLevel;
+        gameState.highestRow = frog.gridY;
+      }
+    }
+
+    // Award bonus for reaching home (lilypad)
+    function awardGoalBonus() {
+      // Time bonus: points per second remaining
+      const secondsRemaining = Math.floor(gameState.timeRemaining / 1000);
+      const timeBonus = secondsRemaining * TIME_BONUS_MULTIPLIER * gameState.difficultyLevel;
+
+      // Goal bonus
+      const goalBonus = BASE_GOAL_BONUS * gameState.difficultyLevel;
+
+      gameState.score += timeBonus + goalBonus;
+      gameState.frogsHome++;
+
+      // Increase difficulty every 5 frogs (with cap at MAX_DIFFICULTY)
+      if (gameState.frogsHome % 5 === 0 && gameState.difficultyLevel < MAX_DIFFICULTY) {
+        gameState.difficultyLevel++;
+        // Trigger visual flash effect
+        gameState.difficultyFlashTimer = gameState.difficultyFlashDuration;
+        // Play level up sound
+        playLevelUpSound();
+        console.log(`Difficulty increased to level ${gameState.difficultyLevel}!`);
+      }
+
+      console.log(`Goal reached! Time bonus: ${timeBonus}, Goal bonus: ${goalBonus}, Total score: ${gameState.score}`);
+    }
+
+    // Handle frog reaching home (lilypad)
+    function handleFrogReachHome() {
+      // Play goal jingle
+      playGoalSound();
+
+      // Award bonuses
+      awardGoalBonus();
+
+      // Reset frog for next attempt
+      resetFrog();
+      resetTimer();
+      gameState.highestRow = 13; // Reset row tracking for new life cycle
+    }
+
+    // Update frog hop animation
+    function updateFrogAnimation(deltaTime) {
+      if (!frog.isHopping) return;
+
+      // Update hop progress
+      frog.hopProgress += deltaTime / HOP_DURATION_MS;
+
+      if (frog.hopProgress >= 1) {
+        // Hop complete
+        frog.hopProgress = 1;
+        frog.x = frog.targetX;
+        frog.y = frog.targetY;
+        frog.isHopping = false;
+        frog.hopFrame = 'idle';
+        frog.canMove = true;
+
+        // Check for row advancement scoring
+        checkRowAdvancement();
+
+        // Check if frog reached home row (goal)
+        if (frog.gridY === 1) {
+          handleFrogReachHome();
+        }
+      } else {
+        // Interpolate position with easing (ease-out)
+        const easeProgress = 1 - Math.pow(1 - frog.hopProgress, 2);
+
+        const startX = frog.targetX - (frog.facing === 'right' ? HOP_DISTANCE : (frog.facing === 'left' ? -HOP_DISTANCE : 0));
+        const startY = frog.targetY - (frog.facing === 'down' ? HOP_DISTANCE : (frog.facing === 'up' ? -HOP_DISTANCE : 0));
+
+        frog.x = startX + (frog.targetX - startX) * easeProgress;
+        frog.y = startY + (frog.targetY - startY) * easeProgress;
+
+        // Update animation frame based on progress
+        if (frog.hopProgress < 0.5) {
+          frog.hopFrame = 'hop1';
+        } else {
+          frog.hopFrame = 'hop2';
+        }
+      }
+    }
+
+    // Draw frog with rotation based on facing direction
+    function drawFrogWithDirection() {
+      const sprites = window.FroggerSprites;
+
+      // Get the appropriate sprite based on animation frame
+      const spriteFrame = frog.hopFrame === 'hop1' ? 'hop1' :
+                          frog.hopFrame === 'hop2' ? 'hop2' : 'idle';
+
+      // Determine if we need to flip horizontally
+      const flipX = frog.facing === 'left';
+
+      // For up/down, use rotation via canvas transform
+      // For left/right, use horizontal flip
+      if (frog.facing === 'up' || frog.facing === 'down') {
+        // Save canvas state
+        ctx.save();
+
+        // Calculate center of sprite for rotation
+        const centerX = frog.x * SCALE + 8 * SCALE;
+        const centerY = frog.y * SCALE + 8 * SCALE;
+
+        // Move to center, rotate, move back
+        ctx.translate(centerX, centerY);
+
+        if (frog.facing === 'down') {
+          ctx.rotate(Math.PI); // 180 degrees
+        }
+        // 'up' is default orientation (0 degrees)
+
+        ctx.translate(-centerX, -centerY);
+
+        // Draw sprite
+        sprites.drawFrog(frog.x, frog.y, spriteFrame, false);
+
+        // Restore canvas state
+        ctx.restore();
+      } else {
+        // Left/right - use flipX for horizontal flip
+        // Right is the flipped version, left is normal
+        sprites.drawFrog(frog.x, frog.y, spriteFrame, frog.facing === 'right');
+      }
+    }
+
+    // Draw lives display in header
+    function drawLivesDisplay() {
+      const sprites = window.FroggerSprites;
+
+      // Draw lives label and icons
+      ctx.fillStyle = COLORS.UI_WHITE;
+      ctx.font = `${8 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('LIVES', 4 * SCALE, 12 * SCALE);
+
+      // Draw life icons
+      for (let i = 0; i < gameState.lives; i++) {
+        sprites.drawLifeIcon(40 + i * 10, 2);
+      }
+    }
+
+    // Draw score display prominently
+    function drawScoreDisplay() {
+      ctx.fillStyle = COLORS.UI_YELLOW;
+      ctx.font = `bold ${10 * SCALE}px "Courier New", monospace`;
+      ctx.textAlign = 'right';
+
+      // Format score with leading zeros (classic arcade style)
+      const scoreStr = String(gameState.score).padStart(6, '0');
+      ctx.fillText(scoreStr, (224 - 4) * SCALE, 12 * SCALE);
+
+      // Show difficulty multiplier if > 1
+      if (gameState.difficultyLevel > 1) {
+        ctx.fillStyle = COLORS.FROG_GREEN;
+        ctx.font = `${6 * SCALE}px "Courier New", monospace`;
+        ctx.fillText(`x${gameState.difficultyLevel}`, (224 - 4) * SCALE, 14.5 * SCALE);
+      }
+
+      ctx.textAlign = 'left'; // Reset
+    }
+
+    // Draw timer bar (classic Frogger style at bottom of screen)
+    function drawTimerBar() {
+      // Timer bar dimensions - positioned in the footer area
+      const barX = 70 * SCALE;           // Start position
+      const barY = (256 - 11) * SCALE;   // In footer area (row 14)
+      const barMaxWidth = 140 * SCALE;   // Full bar width
+      const barHeight = 6 * SCALE;       // Bar height
+
+      // Calculate current width based on time remaining
+      const timeRatio = gameState.timeRemaining / gameState.maxTime;
+      const barCurrentWidth = Math.max(0, barMaxWidth * timeRatio);
+
+      // Timer label
+      ctx.fillStyle = COLORS.UI_WHITE;
+      ctx.font = `${7 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('TIME', 45 * SCALE, barY + 5 * SCALE);
+
+      // Bar background (empty timer)
+      ctx.fillStyle = COLORS.ROAD_DARK;
+      ctx.fillRect(barX, barY, barMaxWidth, barHeight);
+
+      // Bar fill color changes based on time remaining
+      let barColor;
+      if (timeRatio > 0.5) {
+        barColor = COLORS.FROG_GREEN;      // Green: plenty of time
+      } else if (timeRatio > 0.25) {
+        barColor = COLORS.CAR_YELLOW;      // Yellow: getting low
+      } else {
+        barColor = COLORS.CAR_RED;         // Red: critical!
+      }
+
+      // Draw filled portion of bar
+      ctx.fillStyle = barColor;
+      ctx.fillRect(barX, barY, barCurrentWidth, barHeight);
+
+      // Bar border
+      ctx.strokeStyle = COLORS.UI_WHITE;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, barY, barMaxWidth, barHeight);
+    }
+
+    // Draw pixel art title "FROGGER"
+    function drawTitle(y) {
+      const letterWidth = 8;
+      const letterSpacing = 2;
+      const titleWidth = TITLE_LETTERS.length * (letterWidth + letterSpacing) - letterSpacing;
+      const startX = (224 - titleWidth * 2) / 2; // Scale 2x for title, centered
+
+      for (let i = 0; i < TITLE_LETTERS.length; i++) {
+        const letter = TITLE_LETTERS[i];
+        const x = startX + i * (letterWidth + letterSpacing) * 2;
+
+        // Draw letter at 2x scale (double the normal 3x scale = 6x original)
+        for (let row = 0; row < letter.length; row++) {
+          for (let col = 0; col < letter[row].length; col++) {
+            const color = letter[row][col];
+            if (color !== null) {
+              ctx.fillStyle = color;
+              // Draw 2x2 blocks in scaled coordinates
+              ctx.fillRect((x + col * 2) * SCALE, (y + row * 2) * SCALE, 2 * SCALE, 2 * SCALE);
+            }
+          }
+        }
+      }
+    }
+
+    // Draw title screen (ready state - controller connected, waiting for input)
+    function drawTitleScreen() {
+      // Clear canvas with dark background
+      ctx.fillStyle = COLORS.BLACK;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Draw dark blue background
+      ctx.fillStyle = COLORS.DARK_BLUE;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Draw pixel art title "FROGGER"
+      drawTitle(30);
+
+      // Draw decorative frog below title
+      const sprites = window.FroggerSprites;
+      const frogX = (224 - 16) / 2; // Center frog
+      const frogY = 55;
+      sprites.drawFrog(frogX, frogY, 'idle');
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Controller connected - show "Press any direction to start"
+      ctx.fillStyle = COLORS.FROG_GREEN;
+      ctx.font = `${10 * SCALE}px monospace`;
+      ctx.fillText('CONTROLLER CONNECTED!', CANVAS_WIDTH / 2, 100 * SCALE);
+
+      // Blinking "Press any direction to start" text
+      if (Math.floor(blinkTimer / BLINK_INTERVAL) % 2 === 0) {
+        ctx.fillStyle = COLORS.UI_YELLOW;
+        ctx.font = `${9 * SCALE}px monospace`;
+        ctx.fillText('PRESS ANY DIRECTION', CANVAS_WIDTH / 2, 140 * SCALE);
+        ctx.fillText('TO START', CANVAS_WIDTH / 2, 155 * SCALE);
+      }
+
+      // Show high score if exists
+      const highScores = loadHighScores();
+      if (highScores.length > 0) {
+        ctx.fillStyle = COLORS.UI_WHITE;
+        ctx.font = `${7 * SCALE}px monospace`;
+        ctx.fillText('HIGH SCORE', CANVAS_WIDTH / 2, 190 * SCALE);
+        ctx.fillStyle = COLORS.UI_YELLOW;
+        ctx.font = `${10 * SCALE}px monospace`;
+        ctx.fillText(`${highScores[0].initials} ${String(highScores[0].score).padStart(6, '0')}`, CANVAS_WIDTH / 2, 205 * SCALE);
+      }
+
+      // Instructions
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.font = `${6 * SCALE}px monospace`;
+      ctx.fillText('USE D-PAD TO MOVE', CANVAS_WIDTH / 2, 235 * SCALE);
+      ctx.fillText('REACH THE LILYPADS!', CANVAS_WIDTH / 2, 245 * SCALE);
+
+      // Reset text alignment
+      ctx.textAlign = 'left';
+    }
+
+    // Draw game over screen
+    function drawGameOver() {
+      // Semi-transparent overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      ctx.textAlign = 'center';
+
+      if (gameState.isEnteringInitials) {
+        // Initial entry mode
+        drawInitialEntry();
+      } else {
+        // Standard game over with leaderboard
+        noteGameOverHighscoresShown();
+        drawGameOverWithLeaderboard();
+      }
+
+      ctx.textAlign = 'left'; // Reset text alignment
+    }
+
+    // Draw initial entry screen
+    function drawInitialEntry() {
+      const centerX = CANVAS_WIDTH / 2;
+      let y = 40 * SCALE;
+
+      // Title
+      ctx.fillStyle = COLORS.UI_YELLOW;
+      ctx.font = `bold ${14 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('NEW HIGH SCORE!', centerX, y);
+      y += 25 * SCALE;
+
+      // Score
+      ctx.fillStyle = COLORS.FROG_GREEN;
+      ctx.font = `bold ${12 * SCALE}px "Courier New", monospace`;
+      const scoreStr = String(gameState.score).padStart(6, '0');
+      ctx.fillText(scoreStr, centerX, y);
+      y += 30 * SCALE;
+
+      // Rank
+      const rank = getScoreRank(gameState.score);
+      ctx.fillStyle = COLORS.UI_WHITE;
+      ctx.font = `${8 * SCALE}px "Courier New", monospace`;
+      ctx.fillText(`RANK: #${rank}`, centerX, y);
+      y += 35 * SCALE;
+
+      // Instructions
+      ctx.fillStyle = COLORS.UI_WHITE;
+      ctx.font = `${7 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('ENTER YOUR INITIALS', centerX, y);
+      y += 20 * SCALE;
+
+      // Draw initial boxes
+      const boxWidth = 30 * SCALE;
+      const boxHeight = 35 * SCALE;
+      const boxGap = 10 * SCALE;
+      const totalWidth = boxWidth * 3 + boxGap * 2;
+      let boxX = centerX - totalWidth / 2;
+
+      for (let i = 0; i < 3; i++) {
+        // Box background
+        const isSelected = i === gameState.currentInitialIndex;
+        ctx.fillStyle = isSelected ? 'rgba(74, 222, 128, 0.3)' : 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(boxX, y, boxWidth, boxHeight);
+
+        // Box border
+        ctx.strokeStyle = isSelected ? COLORS.FROG_GREEN : 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.strokeRect(boxX, y, boxWidth, boxHeight);
+
+        // Letter
+        ctx.fillStyle = isSelected ? COLORS.FROG_GREEN : COLORS.UI_WHITE;
+        ctx.font = `bold ${18 * SCALE}px "Courier New", monospace`;
+        // Vertically center the glyph inside the box.
+        ctx.textBaseline = 'middle';
+        ctx.fillText(gameState.initials[i], boxX + boxWidth / 2, y + boxHeight / 2);
+        ctx.textBaseline = 'alphabetic';
+
+        // Arrow indicators for selected box
+        if (isSelected) {
+          ctx.fillStyle = COLORS.FROG_GREEN;
+          ctx.font = `${10 * SCALE}px "Courier New", monospace`;
+          // Up arrow
+          ctx.fillText('▲', boxX + boxWidth / 2, y - 5 * SCALE);
+          // Down arrow
+          ctx.fillText('▼', boxX + boxWidth / 2, y + boxHeight + 15 * SCALE);
+        }
+
+        boxX += boxWidth + boxGap;
+      }
+
+      y += boxHeight + 35 * SCALE;
+
+      // Control instructions
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = `${6 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('UP/DOWN: Change Letter', centerX, y);
+      y += 12 * SCALE;
+      ctx.fillText('LEFT/RIGHT: Select Position', centerX, y);
+      y += 12 * SCALE;
+      ctx.fillStyle = COLORS.FROG_GREEN;
+      ctx.fillText('RIGHT on last position: Confirm', centerX, y);
+    }
+
+    // Draw game over screen with leaderboard
+    function drawGameOverWithLeaderboard() {
+      const centerX = CANVAS_WIDTH / 2;
+      let y = 30 * SCALE;
+
+      // Game Over text
+      ctx.fillStyle = COLORS.CAR_RED;
+      ctx.font = `bold ${14 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('GAME OVER', centerX, y);
+      y += 25 * SCALE;
+
+      // Final score
+      ctx.fillStyle = COLORS.UI_YELLOW;
+      ctx.font = `bold ${10 * SCALE}px "Courier New", monospace`;
+      const scoreStr = String(gameState.score).padStart(6, '0');
+      ctx.fillText(`SCORE: ${scoreStr}`, centerX, y);
+      y += 15 * SCALE;
+
+      // Frogs home count
+      ctx.fillStyle = COLORS.FROG_GREEN;
+      ctx.font = `${7 * SCALE}px "Courier New", monospace`;
+      ctx.fillText(`Frogs Home: ${gameState.frogsHome}`, centerX, y);
+      y += 25 * SCALE;
+
+      // Leaderboard title
+      ctx.fillStyle = COLORS.UI_WHITE;
+      ctx.font = `bold ${8 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('— TOP SCORES —', centerX, y);
+      y += 15 * SCALE;
+
+      // Draw high scores
+      const highScores = loadHighScores();
+      const rowHeight = 12 * SCALE;
+
+      if (highScores.length === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = `${6 * SCALE}px "Courier New", monospace`;
+        ctx.fillText('No scores yet!', centerX, y);
+        y += rowHeight;
+      } else {
+        for (let i = 0; i < Math.min(highScores.length, 10); i++) {
+          const entry = highScores[i];
+          const isCurrentScore = entry.score === gameState.score &&
+                                 entry.initials === gameState.initials?.join?.('');
+
+          // Highlight current player's new score
+          if (isCurrentScore) {
+            ctx.fillStyle = COLORS.FROG_GREEN;
+          } else {
+            ctx.fillStyle = i < 3 ? COLORS.UI_YELLOW : COLORS.UI_WHITE;
+          }
+
+          ctx.font = `${6 * SCALE}px "Courier New", monospace`;
+
+          // Rank
+          const rankStr = `${i + 1}.`.padEnd(3);
+          // Initials
+          const initStr = entry.initials.padEnd(4);
+          // Score
+          const scoreStr = String(entry.score).padStart(6, '0');
+
+          ctx.fillText(`${rankStr} ${initStr} ${scoreStr}`, centerX, y);
+          y += rowHeight;
+        }
+      }
+
+      y += 10 * SCALE;
+
+      // Instructions
+      ctx.fillStyle = COLORS.UI_WHITE;
+      ctx.font = `${7 * SCALE}px "Courier New", monospace`;
+      ctx.fillText('Press any direction to play again', centerX, y);
+    }
+
+    // Draw difficulty increase flash effect
+    function drawDifficultyFlash() {
+      if (gameState.difficultyFlashTimer <= 0) return;
+
+      // Calculate flash intensity (fades out over time)
+      const flashProgress = gameState.difficultyFlashTimer / gameState.difficultyFlashDuration;
+      const alpha = flashProgress * 0.4; // Max 40% opacity
+
+      // Yellow/gold flash overlay
+      ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Show "LEVEL UP!" text during flash
+      if (flashProgress > 0.3) {
+        ctx.fillStyle = `rgba(255, 255, 0, ${flashProgress})`;
+        ctx.font = `bold ${14 * SCALE}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`LEVEL ${gameState.difficultyLevel}!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    // Main render function - renders based on screen state
+    function render() {
+      const sprites = window.FroggerSprites;
+
+      // Handle different screen states
+      // In 'ready' state, show title screen with "Press any direction to start"
+      // Note: 'waiting' state uses DOM connection screen, not canvas
+      if (screenState === 'ready') {
+        drawTitleScreen();
+        return;
+      }
+
+      // Playing or game-over states render the game
+
+      // Draw background
+      sprites.drawBackground();
+
+      // Draw river platforms (logs and turtles)
+      drawRiverPlatforms();
+
+      // Draw vehicles (road hazards)
+      drawVehicles();
+
+      // Draw frog or death animation
+      if (gameState.isDying) {
+        // Draw death animation
+        const frameIndex = Math.floor(gameState.deathTimer / (DEATH_ANIMATION_DURATION / DEATH_FRAMES));
+        sprites.drawDeath(frog.x, frog.y, frameIndex);
+      } else if (!gameState.isGameOver) {
+        // Draw frog (on top of everything)
+        drawFrogWithDirection();
+      }
+
+      // Draw UI elements
+      drawLivesDisplay();
+      drawScoreDisplay();
+      drawTimerBar();
+
+      // Draw difficulty increase flash overlay
+      drawDifficultyFlash();
+
+      // Draw game over overlay if game is over
+      if (gameState.isGameOver) {
+        drawGameOver();
+      }
+    }
+
+    // Game loop
+    function gameLoop(currentTime) {
+      if (!gameRunning) return;
+
+      const deltaTime = lastFrameTime ? currentTime - lastFrameTime : 16;
+      lastFrameTime = currentTime;
+
+      // Update blink timer for title screen
+      if (screenState === 'ready') {
+        blinkTimer += deltaTime;
+      }
+
+      // Only update game logic when playing
+      if (screenState === 'playing') {
+        // Update animations
+        updateFrogAnimation(deltaTime);
+
+        // Update vehicles
+        updateVehicles(deltaTime);
+
+        // Update river platforms
+        updateRiverPlatforms(deltaTime);
+
+        // Update frog position when riding a platform
+        updateFrogOnPlatform(deltaTime);
+
+        // Update timer (only when not dying or game over)
+        if (!gameState.isDying && !gameState.isGameOver) {
+          updateTimer(deltaTime);
+        }
+
+        // Check for drowning (only if not already dying)
+        if (!gameState.isDying && checkDrowning()) {
+          handleFrogDeath('drowned');
+        }
+
+        // Check for vehicle collision (only if not already dying)
+        if (!gameState.isDying && checkVehicleCollision()) {
+          handleFrogDeath('hit');
+        }
+
+        // Update death animation
+        if (gameState.isDying) {
+          gameState.deathTimer += deltaTime;
+          if (gameState.deathTimer >= DEATH_ANIMATION_DURATION) {
+            // Death animation complete
+            finishDeath();
+          }
+        }
+
+        // Update difficulty flash timer
+        if (gameState.difficultyFlashTimer > 0) {
+          gameState.difficultyFlashTimer -= deltaTime;
+          if (gameState.difficultyFlashTimer < 0) {
+            gameState.difficultyFlashTimer = 0;
+          }
+        }
+      }
+
+      // Render
+      render();
+
+      // Continue loop
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start the game loop (called when entering game area)
+    function startGameLoop() {
+      if (gameRunning) return;
+
+      gameRunning = true;
+      lastFrameTime = 0;
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Begin actual gameplay (transition from 'ready' to 'playing')
+    function startPlaying() {
+      screenState = 'playing';
+      resetGameState();
+      resetFrog();
+      initializeVehicles();
+      initializeRiverPlatforms();
+
+      // Initialize audio and start background music
+      initAudio();
+      startBackgroundMusic();
+    }
+
+    // Legacy startGame function for compatibility
+    function startGame() {
+      startGameLoop();
+      // If we're already connected (ready state), start playing
+      if (screenState === 'ready') {
+        startPlaying();
+      }
+    }
+
+    // Restart game after game over
+    function restartGame() {
+      screenState = 'playing';
+      resetGameState();
+      resetFrog();
+      initializeVehicles();
+      initializeRiverPlatforms();
+
+      // Restart background music
+      startBackgroundMusic();
+    }
+
+    // Stop the game
+    function stopGame() {
+      gameRunning = false;
+    }
+
+    // Set screen to waiting state
+    function setScreenWaiting() {
+      screenState = 'waiting';
+    }
+
+    // Set screen to ready state (controller connected)
+    function setScreenReady() {
+      screenState = 'ready';
+      blinkTimer = 0;
+    }
+
+    // ========================================
+    // INPUT HANDLING
+    // ========================================
+
+    // Handle direction input (from controller or keyboard)
+    function handleDirectionInput(direction) {
+      if (!gameRunning) return;
+
+      // If in ready state, any direction starts the game
+      if (screenState === 'ready') {
+        startPlaying();
+        return;
+      }
+
+      // Ignore input in waiting state
+      if (screenState === 'waiting') return;
+
+      // If entering initials, handle initial input
+      if (gameState.isEnteringInitials) {
+        handleInitialInput(direction);
+        return;
+      }
+
+      // If game over (not entering initials), restart on any input
+      if (gameState.isGameOver) {
+        // If embedded, keep highscores visible for 5 seconds (then parent gets `gameEnd`)
+        if (window.parent !== window && gameEndMessageTimeoutId) return;
+        restartGame();
+        return;
+      }
+
+      // Don't move while dying
+      if (gameState.isDying) return;
+
+      moveFrog(direction);
+    }
+
+    // Handle initial entry input
+    function handleInitialInput(direction) {
+      const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+      switch (direction) {
+        case 'up':
+          // Cycle letter up (previous letter: A -> Z -> Y ... -> B -> A)
+          {
+            const currentLetter = gameState.initials[gameState.currentInitialIndex];
+            const currentIndex = LETTERS.indexOf(currentLetter);
+            const newIndex = (currentIndex - 1 + LETTERS.length) % LETTERS.length;
+            gameState.initials[gameState.currentInitialIndex] = LETTERS[newIndex];
+          }
+          break;
+
+        case 'down':
+          // Cycle letter down (next letter: A -> B -> C ... -> Z -> A)
+          {
+            const currentLetter = gameState.initials[gameState.currentInitialIndex];
+            const currentIndex = LETTERS.indexOf(currentLetter);
+            const newIndex = (currentIndex + 1) % LETTERS.length;
+            gameState.initials[gameState.currentInitialIndex] = LETTERS[newIndex];
+          }
+          break;
+
+        case 'left':
+          // Move to previous initial
+          if (gameState.currentInitialIndex > 0) {
+            gameState.currentInitialIndex--;
+          }
+          break;
+
+        case 'right':
+          // Move to next initial or confirm on last position
+          if (gameState.currentInitialIndex < 2) {
+            gameState.currentInitialIndex++;
+          } else {
+            // On last position, confirm and save
+            confirmInitials();
+          }
+          break;
+      }
+    }
+
+    // Confirm initials and save high score
+    function confirmInitials() {
+      clearInitialsEntryTimeout();
+
+      // Save the high score
+      addHighScore(gameState.initials, gameState.score);
+
+      // Exit initial entry mode
+      gameState.isEnteringInitials = false;
+
+      console.log(`High score saved: ${gameState.initials.join('')} - ${gameState.score}`);
+    }
+
+    // Keyboard controls for testing
+    document.addEventListener('keydown', (e) => {
+      // Only handle if game area is visible
+      if (!gameArea.classList.contains('visible')) return;
+
+      switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+          e.preventDefault();
+          handleDirectionInput('up');
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          e.preventDefault();
+          handleDirectionInput('down');
+          break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          e.preventDefault();
+          handleDirectionInput('left');
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          e.preventDefault();
+          handleDirectionInput('right');
+          break;
+      }
+    });
+
+    // ========================================
+    // WEBSOCKET MESSAGE HANDLING (Updated)
+    // ========================================
+
+    // Updated handleMessage to process direction commands
+    const originalHandleMessage = handleMessage;
+    handleMessage = function(message) {
+      switch (message.type) {
+        case 'direction':
+          // Process direction from controller
+          if (message.data && message.data.direction) {
+            handleDirectionInput(message.data.direction);
+          }
+          break;
+
+        case 'player_joined':
+          // When player joins, transition to ready state (not auto-start)
+          playerConnected = true;
+          setStatus('Controller connected!', true);
+
+          // Show game area with title screen and set to ready state
+          setTimeout(() => {
+            showGameArea();
+            setScreenReady();
+            startGameLoop(); // Start loop to render title screen
+          }, 500);
+          break;
+
+        default:
+          // Handle other messages with original handler
+          originalHandleMessage(message);
+          break;
+      }
+    };
+
+    // Show game area and start game
+    function showGameArea() {
+      connectionScreen.style.display = 'none';
+      gameArea.classList.add('visible');
+    }
+
+    // Export functions for external use
+    window.showGameArea = showGameArea;
+    window.startGame = startGame;
+    window.startGameLoop = startGameLoop;
+    window.startPlaying = startPlaying;
+    window.stopGame = stopGame;
+    window.moveFrog = moveFrog;
+    window.resetFrog = resetFrog;
+    window.handleDirectionInput = handleDirectionInput;
+    window.setScreenReady = setScreenReady;
+    window.setScreenWaiting = setScreenWaiting;
+
+    // Debug: Allow starting game from console for testing
+    // Usage: window.debugStartGame()
+    window.debugStartGame = function() {
+      showGameArea();
+      setScreenReady();
+      startGameLoop();
+    };
+
+    // Debug: Instantly start playing (skip ready screen)
+    // Usage: window.debugPlayNow()
+    window.debugPlayNow = function() {
+      showGameArea();
+      screenState = 'playing';
+      startGameLoop();
+      startPlaying();
+    };
+
+    // ========================================
+    // ROAD HAZARDS - VEHICLES SYSTEM
+    // ========================================
+
+    // Lane configuration for road hazards (rows 8-12 from top)
+    // Each lane has: speed (pixels/second), direction (-1=left, 1=right), vehicle types
+    const ROAD_LANE_CONFIG = [
+      { row: 12, speed: 40,  direction: -1, types: ['red'],              spawnInterval: 2500, minGap: 80  },  // Bottom lane - slow cars
+      { row: 11, speed: 60,  direction: 1,  types: ['yellow', 'orange'], spawnInterval: 2000, minGap: 100 },  // Racing cars
+      { row: 10, speed: 30,  direction: -1, types: ['truck'],            spawnInterval: 3500, minGap: 120 },  // Slow trucks
+      { row: 9,  speed: 70,  direction: 1,  types: ['pink', 'blue'],     spawnInterval: 1800, minGap: 90  },  // Fast lane
+      { row: 8,  speed: 50,  direction: -1, types: ['blue', 'red'],      spawnInterval: 2200, minGap: 85  }   // Top road lane
+    ];
+
+    // Vehicle state array
+    const vehicles = [];
+
+    // Vehicle class/structure
+    function createVehicle(laneIndex, x = null) {
+      const lane = ROAD_LANE_CONFIG[laneIndex];
+      const typeIndex = Math.floor(Math.random() * lane.types.length);
+      const type = lane.types[typeIndex];
+
+      // Determine vehicle width (trucks are wider)
+      const width = type === 'truck' ? 32 : 16;
+
+      // Default spawn position based on direction
+      // Vehicles spawn just off-screen
+      let startX;
+      if (x !== null) {
+        startX = x;
+      } else if (lane.direction === 1) {
+        // Moving right - spawn from left edge
+        startX = -width;
+      } else {
+        // Moving left - spawn from right edge
+        startX = 224; // Canvas width in original scale
+      }
+
+      return {
+        laneIndex,
+        type,
+        x: startX,
+        y: lane.row * 16, // Convert row to pixels (original scale)
+        width,
+        speed: lane.speed,
+        direction: lane.direction
+      };
+    }
+
+    // Spawn timers for each lane
+    const laneSpawnTimers = ROAD_LANE_CONFIG.map(() => 0);
+
+    // Initialize vehicles - spawn initial set across the road
+    function initializeVehicles() {
+      vehicles.length = 0; // Clear existing vehicles
+
+      // Spawn initial vehicles spread across each lane
+      ROAD_LANE_CONFIG.forEach((lane, laneIndex) => {
+        // Calculate how many vehicles to spawn based on lane width and gap
+        const laneWidth = 224;
+        const vehicleWidth = lane.types.includes('truck') ? 32 : 16;
+        const spacing = lane.minGap + vehicleWidth;
+
+        // Spawn 2-3 vehicles per lane, evenly distributed
+        const numVehicles = Math.floor(laneWidth / spacing);
+        for (let i = 0; i < Math.min(numVehicles, 3); i++) {
+          const offset = i * spacing + Math.random() * 40;
+          let x;
+          if (lane.direction === 1) {
+            x = offset;
+          } else {
+            x = laneWidth - offset - vehicleWidth;
+          }
+          vehicles.push(createVehicle(laneIndex, x));
+        }
+      });
+
+      // Reset spawn timers with staggered start
+      laneSpawnTimers.forEach((_, i) => {
+        laneSpawnTimers[i] = Math.random() * ROAD_LANE_CONFIG[i].spawnInterval;
+      });
+    }
+
+    // Update vehicle positions
+    function updateVehicles(deltaTime) {
+      const deltaSeconds = deltaTime / 1000;
+      const speedMultiplier = getDifficultySpeedMultiplier();
+
+      // Update each vehicle position with difficulty-adjusted speed
+      vehicles.forEach(vehicle => {
+        vehicle.x += vehicle.speed * speedMultiplier * vehicle.direction * deltaSeconds;
+      });
+
+      // Remove vehicles that have left the screen and wrap around
+      for (let i = vehicles.length - 1; i >= 0; i--) {
+        const v = vehicles[i];
+
+        // Check if vehicle has completely left the screen
+        if (v.direction === 1 && v.x > 224 + 16) {
+          // Moving right - wrap to left
+          v.x = -v.width;
+        } else if (v.direction === -1 && v.x < -v.width - 16) {
+          // Moving left - wrap to right
+          v.x = 224;
+        }
+      }
+
+      // Spawn new vehicles based on timers
+      const gapMultiplier = getDifficultyGapMultiplier();
+
+      ROAD_LANE_CONFIG.forEach((lane, laneIndex) => {
+        laneSpawnTimers[laneIndex] -= deltaTime;
+
+        if (laneSpawnTimers[laneIndex] <= 0) {
+          // Check if we can spawn (ensure minimum gap from last vehicle in lane)
+          const laneVehicles = vehicles.filter(v => v.laneIndex === laneIndex);
+          const adjustedGap = lane.minGap * gapMultiplier; // Smaller gaps at higher difficulty
+
+          let canSpawn = true;
+
+          if (laneVehicles.length > 0) {
+            // Find the vehicle closest to spawn point
+            let closestVehicle;
+            if (lane.direction === 1) {
+              // Spawning from left, check vehicles near left edge
+              closestVehicle = laneVehicles.reduce((closest, v) =>
+                v.x < closest.x ? v : closest, laneVehicles[0]);
+
+              // Only spawn if closest vehicle has moved far enough
+              if (closestVehicle.x < adjustedGap) {
+                canSpawn = false;
+              }
+            } else {
+              // Spawning from right, check vehicles near right edge
+              closestVehicle = laneVehicles.reduce((closest, v) =>
+                v.x > closest.x ? v : closest, laneVehicles[0]);
+
+              // Only spawn if closest vehicle has moved far enough
+              if (closestVehicle.x + closestVehicle.width > 224 - adjustedGap) {
+                canSpawn = false;
+              }
+            }
+          }
+
+          if (canSpawn && laneVehicles.length < 5) { // Max 5 vehicles per lane
+            vehicles.push(createVehicle(laneIndex));
+          }
+
+          // Reset timer with some randomness to prevent predictable patterns
+          // Spawn intervals also decrease with difficulty
+          const adjustedInterval = lane.spawnInterval * gapMultiplier;
+          const jitter = (Math.random() - 0.5) * adjustedInterval * 0.4;
+          laneSpawnTimers[laneIndex] = adjustedInterval + jitter;
+        }
+      });
+    }
+
+    // Draw all vehicles
+    function drawVehicles() {
+      const sprites = window.FroggerSprites;
+
+      vehicles.forEach(vehicle => {
+        const flipX = vehicle.direction === 1; // Flip when moving right
+
+        if (vehicle.type === 'truck') {
+          sprites.drawTruck(vehicle.x, vehicle.y, flipX);
+        } else {
+          sprites.drawCar(vehicle.x, vehicle.y, vehicle.type, flipX);
+        }
+      });
+    }
+
+    // Export vehicle functions
+    window.vehicles = vehicles;
+    window.updateVehicles = updateVehicles;
+    window.drawVehicles = drawVehicles;
+    window.initializeVehicles = initializeVehicles;
+
+    // ========================================
+    // RIVER MECHANICS - LOGS AND TURTLES
+    // ========================================
+
+    // River lane configuration (rows 2-6 from top)
+    // Each lane has: speed (pixels/second), direction (-1=left, 1=right), platform types
+    const RIVER_LANE_CONFIG = [
+      { row: 2, speed: 35, direction: 1,  types: ['log_medium', 'log_large'],  spawnInterval: 3000, minGap: 60  },  // Top river lane - logs moving right
+      { row: 3, speed: 50, direction: -1, types: ['turtle_group'],             spawnInterval: 2500, minGap: 70, canDive: true },  // Turtles moving left (can dive)
+      { row: 4, speed: 45, direction: 1,  types: ['log_small', 'log_medium'],  spawnInterval: 2200, minGap: 50  },  // Logs moving right
+      { row: 5, speed: 40, direction: -1, types: ['turtle_group'],             spawnInterval: 2800, minGap: 65  },  // Turtles moving left (no dive)
+      { row: 6, speed: 55, direction: 1,  types: ['log_large'],                spawnInterval: 3500, minGap: 80  }   // Bottom river lane - long logs
+    ];
+
+    // River platform state array
+    const riverPlatforms = [];
+
+    // Turtle dive animation timing (in ms)
+    const TURTLE_DIVE_CYCLE = 5000;    // Full cycle duration
+    const TURTLE_SURFACE_TIME = 3500;  // Time turtles stay surfaced
+    const TURTLE_DIVE_TIME = 1500;     // Time underwater (cycle - surface)
+
+    // Create a river platform (log or turtle group)
+    function createRiverPlatform(laneIndex, x = null) {
+      const lane = RIVER_LANE_CONFIG[laneIndex];
+      const typeIndex = Math.floor(Math.random() * lane.types.length);
+      const type = lane.types[typeIndex];
+
+      // Determine platform dimensions
+      let width;
+      if (type === 'log_small') {
+        width = 32;  // 2 tiles
+      } else if (type === 'log_medium') {
+        width = 48;  // 3 tiles
+      } else if (type === 'log_large') {
+        width = 64;  // 4 tiles
+      } else if (type === 'turtle_group') {
+        width = 48;  // 3 turtles (16px each)
+      }
+
+      // Default spawn position based on direction
+      let startX;
+      if (x !== null) {
+        startX = x;
+      } else if (lane.direction === 1) {
+        // Moving right - spawn from left edge
+        startX = -width;
+      } else {
+        // Moving left - spawn from right edge
+        startX = 224;
+      }
+
+      // Turtle dive state
+      let diveState = 'surfaced'; // 'surfaced', 'diving1', 'diving2', 'submerged'
+      let diveTimer = lane.canDive ? Math.random() * TURTLE_DIVE_CYCLE : 0; // Stagger initial dive times
+
+      return {
+        laneIndex,
+        type,
+        x: startX,
+        y: lane.row * 16,
+        width,
+        speed: lane.speed,
+        direction: lane.direction,
+        canDive: lane.canDive || false,
+        diveState,
+        diveTimer
+      };
+    }
+
+    // Spawn timers for each river lane
+    const riverSpawnTimers = RIVER_LANE_CONFIG.map(() => 0);
+
+    // Initialize river platforms
+    function initializeRiverPlatforms() {
+      riverPlatforms.length = 0;
+
+      // Spawn initial platforms spread across each lane
+      RIVER_LANE_CONFIG.forEach((lane, laneIndex) => {
+        const laneWidth = 224;
+        let avgWidth;
+        if (lane.types.includes('log_large')) avgWidth = 64;
+        else if (lane.types.includes('log_medium')) avgWidth = 48;
+        else if (lane.types.includes('turtle_group')) avgWidth = 48;
+        else avgWidth = 32;
+
+        const spacing = lane.minGap + avgWidth;
+        const numPlatforms = Math.floor(laneWidth / spacing);
+
+        for (let i = 0; i < Math.min(numPlatforms, 3); i++) {
+          const offset = i * spacing + Math.random() * 30;
+          let x;
+          if (lane.direction === 1) {
+            x = offset;
+          } else {
+            x = laneWidth - offset - avgWidth;
+          }
+          riverPlatforms.push(createRiverPlatform(laneIndex, x));
+        }
+      });
+
+      // Reset spawn timers
+      riverSpawnTimers.forEach((_, i) => {
+        riverSpawnTimers[i] = Math.random() * RIVER_LANE_CONFIG[i].spawnInterval;
+      });
+    }
+
+    // Update turtle dive animation
+    function updateTurtleDiveState(platform, deltaTime) {
+      if (!platform.canDive || !platform.type.startsWith('turtle')) return;
+
+      // Difficulty affects how fast turtles dive (faster cycle = more frequent diving)
+      const diveMultiplier = getDifficultyDiveMultiplier();
+      const adjustedDiveCycle = TURTLE_DIVE_CYCLE * diveMultiplier;
+      const adjustedSurfaceTime = TURTLE_SURFACE_TIME * diveMultiplier;
+      const adjustedDiveTime = TURTLE_DIVE_TIME * diveMultiplier;
+
+      platform.diveTimer += deltaTime;
+
+      // Calculate position in dive cycle (difficulty-adjusted)
+      const cyclePosition = platform.diveTimer % adjustedDiveCycle;
+
+      if (cyclePosition < adjustedSurfaceTime * 0.9) {
+        platform.diveState = 'surfaced';
+      } else if (cyclePosition < adjustedSurfaceTime) {
+        platform.diveState = 'diving1'; // Warning - about to dive
+      } else if (cyclePosition < adjustedSurfaceTime + adjustedDiveTime * 0.3) {
+        platform.diveState = 'diving2'; // Partially submerged
+      } else if (cyclePosition < adjustedSurfaceTime + adjustedDiveTime * 0.7) {
+        platform.diveState = 'submerged'; // Fully underwater - NOT SAFE
+      } else {
+        platform.diveState = 'diving2'; // Coming back up
+      }
+    }
+
+    // Update river platform positions
+    function updateRiverPlatforms(deltaTime) {
+      const deltaSeconds = deltaTime / 1000;
+      const speedMultiplier = getDifficultySpeedMultiplier();
+
+      // Update each platform position with difficulty-adjusted speed and dive state
+      riverPlatforms.forEach(platform => {
+        platform.x += platform.speed * speedMultiplier * platform.direction * deltaSeconds;
+
+        // Update turtle dive animation (with difficulty-adjusted cycle)
+        updateTurtleDiveState(platform, deltaTime);
+      });
+
+      // Wrap platforms around screen
+      for (let i = riverPlatforms.length - 1; i >= 0; i--) {
+        const p = riverPlatforms[i];
+
+        if (p.direction === 1 && p.x > 224 + 16) {
+          p.x = -p.width;
+        } else if (p.direction === -1 && p.x < -p.width - 16) {
+          p.x = 224;
+        }
+      }
+
+      // Spawn new platforms
+      // Note: For river, we DON'T decrease gaps (would make it impossible)
+      // Instead we keep same gaps but platforms move faster at higher difficulty
+      RIVER_LANE_CONFIG.forEach((lane, laneIndex) => {
+        riverSpawnTimers[laneIndex] -= deltaTime;
+
+        if (riverSpawnTimers[laneIndex] <= 0) {
+          const lanePlatforms = riverPlatforms.filter(p => p.laneIndex === laneIndex);
+
+          let canSpawn = true;
+
+          if (lanePlatforms.length > 0) {
+            let closestPlatform;
+            if (lane.direction === 1) {
+              closestPlatform = lanePlatforms.reduce((closest, p) =>
+                p.x < closest.x ? p : closest, lanePlatforms[0]);
+
+              if (closestPlatform.x < lane.minGap) {
+                canSpawn = false;
+              }
+            } else {
+              closestPlatform = lanePlatforms.reduce((closest, p) =>
+                p.x > closest.x ? p : closest, lanePlatforms[0]);
+
+              if (closestPlatform.x + closestPlatform.width > 224 - lane.minGap) {
+                canSpawn = false;
+              }
+            }
+          }
+
+          if (canSpawn && lanePlatforms.length < 4) {
+            riverPlatforms.push(createRiverPlatform(laneIndex));
+          }
+
+          const jitter = (Math.random() - 0.5) * lane.spawnInterval * 0.4;
+          riverSpawnTimers[laneIndex] = lane.spawnInterval + jitter;
+        }
+      });
+    }
+
+    // Draw all river platforms
+    function drawRiverPlatforms() {
+      const sprites = window.FroggerSprites;
+
+      riverPlatforms.forEach(platform => {
+        if (platform.type === 'turtle_group') {
+          // Map dive state to sprite frame
+          let frame = 'normal';
+          if (platform.diveState === 'diving1') frame = 'diving1';
+          else if (platform.diveState === 'diving2') frame = 'diving2';
+          else if (platform.diveState === 'submerged') frame = 'submerged';
+
+          // Draw 3 turtles in the group
+          for (let i = 0; i < 3; i++) {
+            sprites.drawTurtle(platform.x + i * 16, platform.y, frame);
+          }
+        } else {
+          // Log sprites
+          let size = 'medium';
+          if (platform.type === 'log_small') size = 'small';
+          else if (platform.type === 'log_large') size = 'large';
+
+          sprites.drawLog(platform.x, platform.y, size);
+        }
+      });
+    }
+
+    // Check if frog is on a platform (returns platform or null)
+    function getFrogPlatform() {
+      // Only check when frog is in river rows (2-6)
+      if (frog.gridY < 2 || frog.gridY > 6) {
+        return null;
+      }
+
+      // Frog collision box (center-weighted for better gameplay feel)
+      const frogLeft = frog.x + 2;  // Slightly inset from edges
+      const frogRight = frog.x + 14;
+      const frogCenterX = frog.x + 8;
+
+      for (const platform of riverPlatforms) {
+        // Check if frog is on the same row
+        const platformRow = Math.floor(platform.y / 16);
+        if (platformRow !== frog.gridY) continue;
+
+        // Check horizontal overlap
+        const platformLeft = platform.x;
+        const platformRight = platform.x + platform.width;
+
+        // Frog center must be within platform bounds
+        if (frogCenterX >= platformLeft && frogCenterX <= platformRight) {
+          return platform;
+        }
+      }
+
+      return null;
+    }
+
+    // Check if frog should drown (in water without safe platform)
+    function checkDrowning() {
+      // Only check when frog is in river area and not hopping
+      if (frog.isHopping) return false;
+      if (frog.gridY < 2 || frog.gridY > 6) return false;
+
+      const platform = getFrogPlatform();
+
+      // No platform = drowning
+      if (!platform) {
+        return true;
+      }
+
+      // On a submerged turtle = drowning
+      if (platform.type === 'turtle_group' && platform.diveState === 'submerged') {
+        return true;
+      }
+
+      return false;
+    }
+
+    // Track if frog is currently riding a platform
+    let ridingPlatform = null;
+
+    // Update frog position when riding platform
+    function updateFrogOnPlatform(deltaTime) {
+      // Don't move frog with platform during hop animation or death
+      if (frog.isHopping || gameState.isDying) {
+        ridingPlatform = null;
+        return;
+      }
+
+      // Only apply in river area
+      if (frog.gridY < 2 || frog.gridY > 6) {
+        ridingPlatform = null;
+        return;
+      }
+
+      const platform = getFrogPlatform();
+
+      if (platform) {
+        ridingPlatform = platform;
+
+        // Move frog with platform
+        const deltaSeconds = deltaTime / 1000;
+        const platformMovement = platform.speed * platform.direction * deltaSeconds;
+
+        frog.x += platformMovement;
+        frog.targetX += platformMovement;
+
+        // Update grid position to match pixel position
+        frog.gridX = Math.round(frog.x / 16);
+
+        // Check if frog has been carried off-screen
+        if (frog.x < -8 || frog.x > 224) {
+          // Frog died (carried off screen)
+          handleFrogDeath('carried');
+        }
+      } else {
+        ridingPlatform = null;
+      }
+    }
+
+    // Check for collision with vehicles
+    function checkVehicleCollision() {
+      // Only check when frog is in road area (rows 8-12) and not hopping
+      if (frog.isHopping) return false;
+      if (frog.gridY < 8 || frog.gridY > 12) return false;
+
+      // Frog collision box (slightly inset for fairness)
+      const frogLeft = frog.x + 3;
+      const frogRight = frog.x + 13;
+      const frogTop = frog.y + 3;
+      const frogBottom = frog.y + 13;
+
+      for (const vehicle of vehicles) {
+        // Vehicle collision box
+        const vehicleLeft = vehicle.x + 2;
+        const vehicleRight = vehicle.x + vehicle.width - 2;
+        const vehicleTop = vehicle.y + 3;
+        const vehicleBottom = vehicle.y + 13;
+
+        // Check if frog is in the same row as vehicle
+        const vehicleRow = Math.floor(vehicle.y / 16);
+        if (vehicleRow !== frog.gridY) continue;
+
+        // Check AABB collision
+        if (frogRight > vehicleLeft &&
+            frogLeft < vehicleRight &&
+            frogBottom > vehicleTop &&
+            frogTop < vehicleBottom) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    // Handle frog death (drowning, carried off, hit by car)
+    function handleFrogDeath(cause) {
+      // Don't die again if already dying
+      if (gameState.isDying || gameState.isGameOver) return;
+
+      console.log('Frog died:', cause);
+
+      // Play appropriate death sound
+      if (cause === 'drowned' || cause === 'carried') {
+        playSplashSound();
+      } else if (cause === 'hit') {
+        playSquashSound();
+      } else if (cause === 'timeout') {
+        playTimeoutSound();
+      }
+
+      // Start death animation
+      gameState.isDying = true;
+      gameState.deathTimer = 0;
+      gameState.deathCause = cause;
+
+      // Lock frog movement
+      frog.canMove = false;
+      frog.isHopping = false;
+    }
+
+    // Finish death sequence after animation
+    function finishDeath() {
+      gameState.isDying = false;
+      gameState.deathTimer = 0;
+      gameState.lives--;
+
+      if (gameState.lives <= 0) {
+        // Game over
+        gameState.isGameOver = true;
+        gameState.lives = 0;
+
+        // Stop background music and play game over melody
+        stopBackgroundMusic();
+        playGameOverMelody();
+
+        // Check if score qualifies for leaderboard
+        if (qualifiesForLeaderboard(gameState.score)) {
+          // Enter initial entry mode
+          gameState.isEnteringInitials = true;
+          gameState.qualifiesForHighScore = true;
+          gameState.initials = ['A', 'A', 'A'];
+          gameState.currentInitialIndex = 0;
+          startInitialsEntryTimeout();
+          console.log('Game Over! New high score - entering initials');
+        } else {
+          console.log('Game Over!');
+        }
+      } else {
+        // Respawn frog
+        resetFrog();
+        resetTimer();
+        gameState.highestRow = 13; // Reset row tracking for new life
+      }
+    }
+
+    // Reset game state for new game
+    function resetGameState() {
+      resetGameOverFlowTimers();
+
+      gameState.lives = gameState.maxLives;
+      gameState.isGameOver = false;
+      gameState.isDying = false;
+      gameState.deathTimer = 0;
+      gameState.deathCause = null;
+
+      // Reset timer
+      gameState.timeRemaining = gameState.maxTime;
+
+      // Reset scoring (keep high score concept, but reset current game score)
+      gameState.score = 0;
+      gameState.highestRow = 13;
+      gameState.frogsHome = 0;
+      gameState.difficultyLevel = 1;
+
+      // Reset difficulty flash
+      gameState.difficultyFlashTimer = 0;
+
+      // Reset high score entry state
+      gameState.isEnteringInitials = false;
+      gameState.initials = ['A', 'A', 'A'];
+      gameState.currentInitialIndex = 0;
+      gameState.qualifiesForHighScore = false;
+    }
+
+    // Export river functions
+    window.riverPlatforms = riverPlatforms;
+    window.updateRiverPlatforms = updateRiverPlatforms;
+    window.drawRiverPlatforms = drawRiverPlatforms;
+    window.initializeRiverPlatforms = initializeRiverPlatforms;
+    window.getFrogPlatform = getFrogPlatform;
+    window.checkDrowning = checkDrowning;
+
+    // Export collision and lives functions
+    window.checkVehicleCollision = checkVehicleCollision;
+    window.gameState = gameState;
+    window.restartGame = restartGame;
+
+    // Export high score functions
+    window.loadHighScores = loadHighScores;
+    window.addHighScore = addHighScore;
+    window.qualifiesForLeaderboard = qualifiesForLeaderboard;
+
+    // Export screen state (use getter since it's a primitive)
+    Object.defineProperty(window, 'screenState', {
+      get() { return screenState; },
+      set(val) { screenState = val; }
+    });
+  </script>
+</body>
+</html>

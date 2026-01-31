@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Frogger Controller</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Connection status bar */
+    .status-bar {
+      padding: 12px 16px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .status-bar.connecting {
+      background-color: #f59e0b;
+      color: #000;
+    }
+    .status-bar.connected {
+      background-color: #22c55e;
+      color: #fff;
+    }
+    .status-bar.disconnected {
+      background-color: #ef4444;
+      color: #fff;
+    }
+    .status-bar.error {
+      background-color: #dc2626;
+      color: #fff;
+    }
+    .status-bar.reconnecting {
+      background-color: #f59e0b;
+      color: #000;
+    }
+
+    /* Reconnect overlay */
+    .reconnect-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .reconnect-overlay.visible {
+      display: flex;
+    }
+    .reconnect-title {
+      color: #f59e0b;
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .reconnect-status {
+      color: #888;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+    .reconnect-button {
+      background: linear-gradient(145deg, #4ade80, #22c55e);
+      color: #000;
+      border: none;
+      padding: 16px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .reconnect-button:active {
+      transform: scale(0.95);
+    }
+    .reconnect-button:disabled {
+      background: #666;
+      color: #999;
+    }
+    .reconnect-attempts {
+      color: #666;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+
+    /* Main controller area */
+    .controller-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      position: relative;
+    }
+
+    /* D-pad container */
+    .dpad-container {
+      position: relative;
+      width: 240px;
+      height: 240px;
+    }
+
+    /* D-pad button base styles */
+    .dpad-btn {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: rgba(74, 222, 128, 0.2);
+      border: 3px solid rgba(74, 222, 128, 0.5);
+      border-radius: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
+    }
+    .dpad-btn:active,
+    .dpad-btn.pressed {
+      background: rgba(74, 222, 128, 0.6);
+      border-color: #4ade80;
+      transform: scale(0.95);
+      box-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+    }
+
+    /* D-pad arrow icons */
+    .dpad-btn svg {
+      width: 40px;
+      height: 40px;
+      fill: #4ade80;
+      transition: fill 0.1s;
+    }
+    .dpad-btn:active svg,
+    .dpad-btn.pressed svg {
+      fill: #fff;
+    }
+
+    /* D-pad button positions */
+    .dpad-up {
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .dpad-up:active,
+    .dpad-up.pressed {
+      transform: translateX(-50%) scale(0.95);
+    }
+
+    .dpad-down {
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .dpad-down:active,
+    .dpad-down.pressed {
+      transform: translateX(-50%) scale(0.95);
+    }
+
+    .dpad-left {
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .dpad-left:active,
+    .dpad-left.pressed {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    .dpad-right {
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .dpad-right:active,
+    .dpad-right.pressed {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    /* Center circle (decorative) */
+    .dpad-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Instructions text */
+    .instructions {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 16px;
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    /* Room code input overlay */
+    .room-input-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+      padding: 20px;
+    }
+    .room-input-overlay.visible {
+      display: flex;
+    }
+    .room-input-title {
+      color: #4ade80;
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .room-input-subtitle {
+      color: #888;
+      font-size: 16px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .room-input-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+      max-width: 300px;
+    }
+    .room-input-text {
+      width: 100%;
+      max-width: 300px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 24px;
+      font-weight: bold;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 0 20px;
+      letter-spacing: 8px;
+    }
+    .room-input-text:focus {
+      outline: none;
+      border-color: #4ade80;
+      background: rgba(74, 222, 128, 0.1);
+    }
+    .room-input-text::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+      letter-spacing: 0;
+    }
+    .room-connect-button {
+      background: linear-gradient(145deg, #4ade80, #22c55e);
+      color: #000;
+      border: none;
+      padding: 16px 50px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: transform 0.1s;
+      margin-top: 10px;
+    }
+    .room-connect-button:active {
+      transform: scale(0.95);
+    }
+    .room-connect-button:disabled {
+      background: #666;
+      color: #999;
+      cursor: not-allowed;
+    }
+    .room-input-error {
+      color: #ef4444;
+      font-size: 14px;
+      margin-top: -10px;
+      min-height: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="status-bar connecting" id="statusBar">Connecting...</div>
+
+  <!-- Room code input overlay -->
+  <div class="room-input-overlay" id="roomInputOverlay">
+    <div class="room-input-title">Enter Room Code</div>
+    <div class="room-input-subtitle" id="roomInputSubtitle">Enter the 4-character room code</div>
+    <div class="room-input-container">
+      <input
+        type="text"
+        class="room-input-text"
+        id="roomInputText"
+        placeholder="ABCD"
+        maxlength="4"
+        autocomplete="off"
+        autocapitalize="characters"
+      />
+      <div class="room-input-error" id="roomInputError"></div>
+      <button class="room-connect-button" id="roomConnectButton">CONNECT</button>
+    </div>
+  </div>
+
+  <!-- Reconnect overlay -->
+  <div class="reconnect-overlay" id="reconnectOverlay">
+    <div class="reconnect-title" id="reconnectTitle">Disconnected</div>
+    <div class="reconnect-status" id="reconnectStatus">Attempting to reconnect...</div>
+    <button class="reconnect-button" id="reconnectButton">Reconnect</button>
+    <div class="reconnect-attempts" id="reconnectAttempts"></div>
+  </div>
+
+  <div class="controller-area" id="controllerArea">
+    <div class="dpad-container">
+      <!-- Up button -->
+      <button class="dpad-btn dpad-up" data-direction="up">
+        <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
+      </button>
+
+      <!-- Down button -->
+      <button class="dpad-btn dpad-down" data-direction="down">
+        <svg viewBox="0 0 24 24"><path d="M12 20l8-8h-5v-8h-6v8h-5z"/></svg>
+      </button>
+
+      <!-- Left button -->
+      <button class="dpad-btn dpad-left" data-direction="left">
+        <svg viewBox="0 0 24 24"><path d="M4 12l8 8v-5h8v-6h-8v-5z"/></svg>
+      </button>
+
+      <!-- Right button -->
+      <button class="dpad-btn dpad-right" data-direction="right">
+        <svg viewBox="0 0 24 24"><path d="M20 12l-8-8v5h-8v6h8v5z"/></svg>
+      </button>
+
+      <!-- Center decoration -->
+      <div class="dpad-center"></div>
+    </div>
+
+    <p class="instructions">Tap to move the frog</p>
+  </div>
+
+  <script type="module">
+    // Configuration
+    const CONTROLLER_HOSTNAME = window.location.hostname;
+    const IS_SSL = window.location.protocol === 'https:';
+
+    // Treat localhost *and* raw IP addresses as "dev" hosts so that
+    // opening the controller from another device on the LAN works correctly.
+    const IS_IP_HOST = /^[0-9.]+$/.test(CONTROLLER_HOSTNAME);
+    const IS_DEV_HOST = CONTROLLER_HOSTNAME === 'localhost' || IS_IP_HOST;
+
+    // WebSocket URL: use same-origin reverse proxy at /ws so we don't need a
+    // dedicated external port (important for PaaS like Coolify).
+    const WS_URL = `${IS_SSL ? 'wss' : 'ws'}://${window.location.host}/ws`;
+
+    // Get room code from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomCode = urlParams.get('room');
+
+    // DOM elements
+    const statusBar = document.getElementById('statusBar');
+    const roomInputOverlay = document.getElementById('roomInputOverlay');
+    const roomInputText = document.getElementById('roomInputText');
+    const roomConnectButton = document.getElementById('roomConnectButton');
+    const roomInputError = document.getElementById('roomInputError');
+    const roomInputSubtitle = document.getElementById('roomInputSubtitle');
+    const controllerArea = document.getElementById('controllerArea');
+    const reconnectOverlay = document.getElementById('reconnectOverlay');
+    const reconnectTitle = document.getElementById('reconnectTitle');
+    const reconnectStatus = document.getElementById('reconnectStatus');
+    const reconnectButton = document.getElementById('reconnectButton');
+    const reconnectAttempts = document.getElementById('reconnectAttempts');
+    const dpadButtons = document.querySelectorAll('.dpad-btn');
+
+    // State
+    let ws = null;
+    let isConnected = false;
+
+    // Reconnection state
+    let reconnectAttemptCount = 0;
+    let reconnectTimer = null;
+    let isReconnecting = false;
+    const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
+    const RECONNECT_INTERVAL_MS = 2000;
+
+    // Update connection status UI
+    function setStatus(status, message) {
+      statusBar.className = 'status-bar ' + status;
+      statusBar.textContent = message;
+    }
+
+    // Show/hide reconnect overlay
+    function showReconnectOverlay(title, status, showButton = false) {
+      reconnectTitle.textContent = title;
+      reconnectStatus.textContent = status;
+      reconnectButton.style.display = showButton ? 'block' : 'none';
+      reconnectOverlay.classList.add('visible');
+    }
+
+    function hideReconnectOverlay() {
+      reconnectOverlay.classList.remove('visible');
+      reconnectAttemptCount = 0;
+      isReconnecting = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    }
+
+    function updateReconnectAttempts() {
+      if (reconnectAttemptCount > 0) {
+        reconnectAttempts.textContent = `Attempt ${reconnectAttemptCount} of ${MAX_AUTO_RECONNECT_ATTEMPTS}`;
+      } else {
+        reconnectAttempts.textContent = '';
+      }
+    }
+
+    // Show room input overlay
+    function showRoomInput(subtitle = 'Enter the 4-character room code') {
+      roomInputSubtitle.textContent = subtitle;
+      roomInputText.value = '';
+      roomInputError.textContent = '';
+      roomInputOverlay.classList.add('visible');
+      controllerArea.style.display = 'none';
+      setStatus('disconnected', 'Enter room code');
+      setTimeout(() => {
+        roomInputText.focus();
+      }, 100);
+    }
+
+    // Hide room input overlay
+    function hideRoomInput() {
+      roomInputOverlay.classList.remove('visible');
+      controllerArea.style.display = 'flex';
+    }
+
+    // Handle room code input and connection
+    function handleRoomCodeSubmit() {
+      const inputValue = roomInputText.value.trim().toUpperCase();
+
+      if (!inputValue || inputValue.length !== 4) {
+        roomInputError.textContent = 'Please enter a 4-character room code';
+        return;
+      }
+
+      if (!/^[A-Z0-9]{4}$/.test(inputValue)) {
+        roomInputError.textContent = 'Room code must be letters and numbers only';
+        return;
+      }
+
+      roomCode = inputValue;
+      roomInputError.textContent = '';
+      hideRoomInput();
+      connect();
+    }
+
+    // Connect to WebSocket server
+    function connect(isReconnect = false) {
+      if (!roomCode) {
+        showRoomInput();
+        return;
+      }
+
+      if (isReconnect) {
+        setStatus('reconnecting', 'Reconnecting...');
+      } else {
+        setStatus('connecting', 'Connecting...');
+      }
+
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        if (isReconnect) {
+          ws.send(JSON.stringify({
+            type: 'reconnect',
+            data: { roomCode, clientType: 'phone' }
+          }));
+        } else {
+          ws.send(JSON.stringify({
+            type: 'join_room',
+            data: { roomCode }
+          }));
+        }
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleMessage(message);
+      };
+
+      ws.onerror = () => {
+        setStatus('error', 'Connection error');
+        isConnected = false;
+        handleConnectionLost();
+      };
+
+      ws.onclose = () => {
+        if (isConnected) {
+          isConnected = false;
+          handleConnectionLost();
+        }
+      };
+    }
+
+    // Handle connection loss and auto-reconnect
+    function handleConnectionLost() {
+      if (isReconnecting) return;
+
+      isReconnecting = true;
+      reconnectAttemptCount = 0;
+      showReconnectOverlay('Disconnected', 'Attempting to reconnect...');
+      startAutoReconnect();
+    }
+
+    function startAutoReconnect() {
+      if (reconnectAttemptCount >= MAX_AUTO_RECONNECT_ATTEMPTS) {
+        setStatus('disconnected', 'Auto-reconnect failed');
+        showReconnectOverlay(
+          'Connection Lost',
+          'Auto-reconnect timed out',
+          true
+        );
+        reconnectAttempts.textContent = '';
+        return;
+      }
+
+      reconnectAttemptCount++;
+      updateReconnectAttempts();
+      reconnectStatus.textContent = 'Attempting to reconnect...';
+
+      reconnectTimer = setTimeout(() => {
+        if (!isConnected) {
+          connect(true);
+
+          reconnectTimer = setTimeout(() => {
+            if (!isConnected && isReconnecting) {
+              startAutoReconnect();
+            }
+          }, RECONNECT_INTERVAL_MS);
+        }
+      }, reconnectAttemptCount === 1 ? 0 : RECONNECT_INTERVAL_MS);
+    }
+
+    // Manual reconnect button handler
+    function manualReconnect() {
+      reconnectButton.disabled = true;
+      reconnectStatus.textContent = 'Connecting...';
+      reconnectAttemptCount = 0;
+
+      connect(true);
+
+      setTimeout(() => {
+        reconnectButton.disabled = false;
+      }, 2000);
+    }
+
+    // Handle incoming WebSocket messages
+    function handleMessage(message) {
+      switch (message.type) {
+        case 'room_joined':
+          isConnected = true;
+          setStatus('connected', 'Connected');
+          hideReconnectOverlay();
+          break;
+        case 'reconnected':
+          isConnected = true;
+          setStatus('connected', 'Reconnected');
+          hideReconnectOverlay();
+          break;
+        case 'error':
+          setStatus('error', message.data?.message || 'Error');
+          const errorMsg = message.data?.message || '';
+          if (errorMsg.includes('Room') && (errorMsg.includes('not found') || errorMsg.includes('expired'))) {
+            isReconnecting = false;
+            if (ws) {
+              ws.close();
+              ws = null;
+            }
+            isConnected = false;
+            roomCode = null;
+            hideReconnectOverlay();
+            showRoomInput('Room not found or expired. Enter a new room code');
+          }
+          break;
+        case 'peer_disconnected':
+          setStatus('disconnected', 'Game disconnected');
+          break;
+        case 'peer_reconnected':
+          setStatus('connected', 'Connected');
+          break;
+        case 'room_closed':
+          handleRoomClosed();
+          break;
+      }
+    }
+
+    // Handle room closed
+    function handleRoomClosed() {
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      isConnected = false;
+      roomCode = null;
+      showRoomInput('Game ended. Enter a new room code to play again');
+    }
+
+    // Send direction command to game
+    function sendDirection(direction) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'direction',
+          data: { direction }
+        }));
+      }
+    }
+
+    // D-pad button handlers
+    function handleButtonPress(e) {
+      e.preventDefault();
+      const btn = e.currentTarget;
+      const direction = btn.dataset.direction;
+
+      if (direction && isConnected) {
+        btn.classList.add('pressed');
+        sendDirection(direction);
+      }
+    }
+
+    function handleButtonRelease(e) {
+      e.preventDefault();
+      const btn = e.currentTarget;
+      btn.classList.remove('pressed');
+    }
+
+    // Attach event listeners to D-pad buttons
+    dpadButtons.forEach(btn => {
+      // Touch events
+      btn.addEventListener('touchstart', handleButtonPress, { passive: false });
+      btn.addEventListener('touchend', handleButtonRelease, { passive: false });
+      btn.addEventListener('touchcancel', handleButtonRelease, { passive: false });
+
+      // Mouse events for desktop testing
+      btn.addEventListener('mousedown', handleButtonPress);
+      btn.addEventListener('mouseup', handleButtonRelease);
+      btn.addEventListener('mouseleave', handleButtonRelease);
+    });
+
+    // Prevent default touch behaviors on the whole document
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    // Prevent context menu on long press
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Prevent scrolling/zooming
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('gesturechange', (e) => e.preventDefault());
+    document.addEventListener('gestureend', (e) => e.preventDefault());
+
+    // Tap status bar to reconnect when disconnected
+    statusBar.addEventListener('click', () => {
+      if (!isConnected && ws?.readyState !== WebSocket.CONNECTING) {
+        connect(true);
+      }
+    });
+
+    // Manual reconnect button
+    reconnectButton.addEventListener('click', manualReconnect);
+
+    // Room code input handlers
+    roomInputText.addEventListener('input', (e) => {
+      const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      e.target.value = value;
+      roomInputError.textContent = '';
+    });
+
+    roomInputText.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleRoomCodeSubmit();
+      }
+    });
+
+    roomConnectButton.addEventListener('click', handleRoomCodeSubmit);
+
+    // Initialize - show room input if no room code in URL, otherwise connect
+    if (!roomCode) {
+      showRoomInput();
+    } else {
+      connect();
+    }
+  </script>
+</body>
+</html>

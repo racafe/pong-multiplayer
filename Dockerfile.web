@@ -1,0 +1,9 @@
+FROM nginx:alpine
+
+# Ship static HTML inside the image to avoid fragile bind-mounts in PaaS (e.g. Coolify).
+COPY index.html /usr/share/nginx/html/index.html
+COPY controller.html /usr/share/nginx/html/controller.html
+
+# Reverse proxy /ws -> ws service so we don't need an external WS port.
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+

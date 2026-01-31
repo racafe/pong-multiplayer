@@ -1,0 +1,19 @@
+services:
+  ws:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    depends_on:
+      - ws
+    ports:
+      - "${WEB_PORT-8080}:80"
+    restart: unless-stopped
+
