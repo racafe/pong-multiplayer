@@ -633,6 +633,16 @@
     const CENTER_LINE_DASH = [20, 15];
     const CENTER_LINE_WIDTH = 4;
 
+    // Ball physics constants
+    const BALL_INITIAL_SPEED = 5;       // Initial ball speed (pixels per frame)
+    const BALL_MAX_SPEED = 12;          // Maximum ball speed
+    const BALL_SPEED_INCREMENT = 0.3;   // Speed increase per paddle hit
+    const MAX_BOUNCE_ANGLE = Math.PI / 4; // 45 degrees max bounce angle
+
+    // Game settings
+    const WINNING_SCORE = 5;
+    const SCORE_RESET_DELAY = 1000;     // 1 second pause after scoring
+
     // Neon colors
     const COLORS = {
       background: '#0a0a0f',
@@ -655,13 +665,22 @@
       ballX: CANVAS_WIDTH / 2,
       ballY: CANVAS_HEIGHT / 2,
 
+      // Ball velocity
+      ballVX: 0,     // Horizontal velocity
+      ballVY: 0,     // Vertical velocity
+      ballSpeed: BALL_INITIAL_SPEED,  // Current ball speed
+
       // Scores
       score1: 0,
       score2: 0,
 
       // Game running state
       isRunning: false,
-      isPaused: false
+      isPaused: false,
+      isWaitingForReset: false,  // True during score reset delay
+      gameOver: false,
+      winner: null,              // 'player1' or 'player2' when game ends
+      lastScorer: null           // Who scored last (ball served toward them)
     };
 
     // Animation frame ID for cleanup
@@ -676,6 +695,185 @@
       // 0 = bottom, 100 = top (inverted for canvas)
       const playableHeight = CANVAS_HEIGHT - PADDLE_HEIGHT;
       return playableHeight - (normalizedY / 100) * playableHeight;
+    }
+
+    // ========================================
+    // BALL PHYSICS
+    // ========================================
+
+    // Serve the ball toward a direction (1 = right toward player2, -1 = left toward player1)
+    function serveBall(direction) {
+      gameState.ballX = CANVAS_WIDTH / 2;
+      gameState.ballY = CANVAS_HEIGHT / 2;
+      gameState.ballSpeed = BALL_INITIAL_SPEED;
+
+      // Random angle between -30 and 30 degrees
+      const angle = (Math.random() - 0.5) * Math.PI / 3;
+      gameState.ballVX = direction * gameState.ballSpeed * Math.cos(angle);
+      gameState.ballVY = gameState.ballSpeed * Math.sin(angle);
+    }
+
+    // Check and handle collision with top/bottom walls
+    function handleWallCollision() {
+      // Top wall
+      if (gameState.ballY - BALL_RADIUS <= 0) {
+        gameState.ballY = BALL_RADIUS;
+        gameState.ballVY = -gameState.ballVY;
+        return true;
+      }
+      // Bottom wall
+      if (gameState.ballY + BALL_RADIUS >= CANVAS_HEIGHT) {
+        gameState.ballY = CANVAS_HEIGHT - BALL_RADIUS;
+        gameState.ballVY = -gameState.ballVY;
+        return true;
+      }
+      return false;
+    }
+
+    // Check collision with a paddle and return hit position (-1 to 1) or null if no hit
+    function checkPaddleCollision(paddleX, paddleY) {
+      const paddleTop = paddleY;
+      const paddleBottom = paddleY + PADDLE_HEIGHT;
+      const paddleLeft = paddleX;
+      const paddleRight = paddleX + PADDLE_WIDTH;
+
+      // Check if ball intersects paddle
+      if (gameState.ballX + BALL_RADIUS >= paddleLeft &&
+          gameState.ballX - BALL_RADIUS <= paddleRight &&
+          gameState.ballY + BALL_RADIUS >= paddleTop &&
+          gameState.ballY - BALL_RADIUS <= paddleBottom) {
+
+        // Calculate hit position (-1 = top, 0 = center, 1 = bottom)
+        const paddleCenter = paddleY + PADDLE_HEIGHT / 2;
+        const hitPosition = (gameState.ballY - paddleCenter) / (PADDLE_HEIGHT / 2);
+        return Math.max(-1, Math.min(1, hitPosition));
+      }
+      return null;
+    }
+
+    // Handle paddle collision and update ball velocity
+    function handlePaddleCollision() {
+      // Player 1 paddle (left)
+      const paddle1X = PADDLE_OFFSET;
+      const paddle1Y = paddleYToCanvas(gameState.paddle1Y);
+
+      if (gameState.ballVX < 0) {  // Ball moving left
+        const hitPos = checkPaddleCollision(paddle1X, paddle1Y);
+        if (hitPos !== null) {
+          // Bounce off paddle with angle based on hit position
+          const bounceAngle = hitPos * MAX_BOUNCE_ANGLE;
+          gameState.ballSpeed = Math.min(gameState.ballSpeed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
+          gameState.ballVX = gameState.ballSpeed * Math.cos(bounceAngle);
+          gameState.ballVY = gameState.ballSpeed * Math.sin(bounceAngle);
+
+          // Ensure ball is outside paddle
+          gameState.ballX = paddle1X + PADDLE_WIDTH + BALL_RADIUS;
+          return true;
+        }
+      }
+
+      // Player 2 paddle (right)
+      const paddle2X = CANVAS_WIDTH - PADDLE_OFFSET - PADDLE_WIDTH;
+      const paddle2Y = paddleYToCanvas(gameState.paddle2Y);
+
+      if (gameState.ballVX > 0) {  // Ball moving right
+        const hitPos = checkPaddleCollision(paddle2X, paddle2Y);
+        if (hitPos !== null) {
+          // Bounce off paddle with angle based on hit position
+          const bounceAngle = hitPos * MAX_BOUNCE_ANGLE;
+          gameState.ballSpeed = Math.min(gameState.ballSpeed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
+          gameState.ballVX = -gameState.ballSpeed * Math.cos(bounceAngle);
+          gameState.ballVY = gameState.ballSpeed * Math.sin(bounceAngle);
+
+          // Ensure ball is outside paddle
+          gameState.ballX = paddle2X - BALL_RADIUS;
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    // Check if a point was scored
+    function checkScoring() {
+      // Ball passed left side - Player 2 scores
+      if (gameState.ballX + BALL_RADIUS < 0) {
+        gameState.score2++;
+        gameState.lastScorer = 'player2';
+        return 'player2';
+      }
+
+      // Ball passed right side - Player 1 scores
+      if (gameState.ballX - BALL_RADIUS > CANVAS_WIDTH) {
+        gameState.score1++;
+        gameState.lastScorer = 'player1';
+        return 'player1';
+      }
+
+      return null;
+    }
+
+    // Check if game is over
+    function checkGameOver() {
+      if (gameState.score1 >= WINNING_SCORE) {
+        gameState.gameOver = true;
+        gameState.winner = 'player1';
+        return true;
+      }
+      if (gameState.score2 >= WINNING_SCORE) {
+        gameState.gameOver = true;
+        gameState.winner = 'player2';
+        return true;
+      }
+      return false;
+    }
+
+    // Reset ball after scoring (with delay)
+    function resetBallAfterScore(scorer) {
+      gameState.isWaitingForReset = true;
+      gameState.ballVX = 0;
+      gameState.ballVY = 0;
+      gameState.ballX = CANVAS_WIDTH / 2;
+      gameState.ballY = CANVAS_HEIGHT / 2;
+
+      setTimeout(() => {
+        if (!gameState.gameOver) {
+          gameState.isWaitingForReset = false;
+          // Serve toward the player who scored
+          const direction = scorer === 'player1' ? 1 : -1;
+          serveBall(direction);
+        }
+      }, SCORE_RESET_DELAY);
+    }
+
+    // Update ball position and handle physics
+    function updateBall() {
+      if (gameState.isPaused || gameState.isWaitingForReset || gameState.gameOver) {
+        return;
+      }
+
+      // Move ball
+      gameState.ballX += gameState.ballVX;
+      gameState.ballY += gameState.ballVY;
+
+      // Handle wall collisions
+      handleWallCollision();
+
+      // Handle paddle collisions
+      handlePaddleCollision();
+
+      // Check for scoring
+      const scorer = checkScoring();
+      if (scorer) {
+        if (checkGameOver()) {
+          // Game over - stop ball
+          gameState.ballVX = 0;
+          gameState.ballVY = 0;
+        } else {
+          // Reset ball after delay
+          resetBallAfterScore(scorer);
+        }
+      }
     }
 
     // ========================================
@@ -792,6 +990,45 @@
       ctx.restore();
     }
 
+    function drawWinnerAnnouncement() {
+      if (!gameState.gameOver || !gameState.winner) return;
+
+      ctx.save();
+
+      // Semi-transparent overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Winner text
+      const winnerColor = gameState.winner === 'player1' ? COLORS.player1 : COLORS.player2;
+      const playerNum = gameState.winner === 'player1' ? '1' : '2';
+
+      ctx.font = 'bold 72px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Neon glow effect for winner text
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = winnerColor;
+      ctx.fillStyle = winnerColor;
+      ctx.fillText(`PLAYER ${playerNum}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+
+      ctx.font = 'bold 48px "Courier New", monospace';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ffffff';
+      ctx.fillText('WINS!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+
+      // Press to play again hint (for future US-010)
+      ctx.font = '20px "Courier New", monospace';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#0ff';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText('Game Over', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+
+      ctx.restore();
+    }
+
     function render() {
       // Clear and redraw everything
       clearCanvas();
@@ -800,9 +1037,18 @@
       drawPlayer1Paddle();
       drawPlayer2Paddle();
       drawBall();
+
+      // Draw winner announcement if game is over
+      if (gameState.gameOver) {
+        drawWinnerAnnouncement();
+      }
     }
 
     function gameLoop() {
+      // Update ball physics
+      updateBall();
+
+      // Render the frame
       render();
 
       // Continue loop if game is running
@@ -836,15 +1082,26 @@
       gameState.paddle2Y = 50;
       gameState.ballX = CANVAS_WIDTH / 2;
       gameState.ballY = CANVAS_HEIGHT / 2;
+      gameState.ballVX = 0;
+      gameState.ballVY = 0;
+      gameState.ballSpeed = BALL_INITIAL_SPEED;
       gameState.score1 = 0;
       gameState.score2 = 0;
       gameState.isPaused = false;
+      gameState.isWaitingForReset = false;
+      gameState.gameOver = false;
+      gameState.winner = null;
+      gameState.lastScorer = null;
 
       // Initial render
       render();
 
       // Start the game loop
       startGameLoop();
+
+      // Serve the ball (random direction for first serve)
+      const initialDirection = Math.random() < 0.5 ? 1 : -1;
+      serveBall(initialDirection);
     }
 
     // ========================================
@@ -877,6 +1134,47 @@
       return { ...gameState };
     }
 
+    // Pause the game (for US-008 disconnect handling)
+    function pauseGame() {
+      gameState.isPaused = true;
+    }
+
+    // Resume the game (for US-008 reconnection)
+    function resumeGame() {
+      gameState.isPaused = false;
+    }
+
+    // Reset game for a new match (for US-010)
+    function resetGame() {
+      // Reset all state except paddles (keep player positions)
+      gameState.ballX = CANVAS_WIDTH / 2;
+      gameState.ballY = CANVAS_HEIGHT / 2;
+      gameState.ballVX = 0;
+      gameState.ballVY = 0;
+      gameState.ballSpeed = BALL_INITIAL_SPEED;
+      gameState.score1 = 0;
+      gameState.score2 = 0;
+      gameState.isPaused = false;
+      gameState.isWaitingForReset = false;
+      gameState.gameOver = false;
+      gameState.winner = null;
+
+      // Serve toward the player who lost
+      const serveDirection = gameState.lastScorer === 'player1' ? -1 : 1;
+      gameState.lastScorer = null;
+      serveBall(serveDirection);
+    }
+
+    // Check if game is over
+    function isGameOver() {
+      return gameState.gameOver;
+    }
+
+    // Get winner (returns 'player1', 'player2', or null)
+    function getWinner() {
+      return gameState.winner;
+    }
+
     // ========================================
     // INITIALIZE
     // ========================================
@@ -896,13 +1194,19 @@
       startGameLoop,
       stopGameLoop,
       render,
+      pauseGame,
+      resumeGame,
+      resetGame,
+      isGameOver,
+      getWinner,
       // Constants exposed for external use
       CANVAS_WIDTH,
       CANVAS_HEIGHT,
       PADDLE_WIDTH,
       PADDLE_HEIGHT,
       PADDLE_OFFSET,
-      BALL_RADIUS
+      BALL_RADIUS,
+      WINNING_SCORE
     };
 
     // Debug: Allow transitioning to game from console
