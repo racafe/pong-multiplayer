@@ -954,6 +954,16 @@
         case 'room_closed':
           handleRoomClosed();
           break;
+
+        case 'game_over':
+          // Game ended, waiting for host to start new game
+          handleGameOver(message.data?.winner);
+          break;
+
+        case 'new_game':
+          // Host started a new game
+          handleNewGame();
+          break;
       }
     }
 
@@ -966,6 +976,39 @@
       roomCode = null;
       playerSlot = null;
       showRoomInput('Game ended. Enter a new room code to play again');
+    }
+
+    // ========================================
+    // GAME OVER / NEW GAME HANDLING
+    // ========================================
+
+    let isWaitingForNewGame = false;
+
+    function handleGameOver(winner) {
+      isWaitingForNewGame = true;
+      // Show waiting for new game status
+      const isWinner = winner === playerSlot;
+      const statusMsg = isWinner ? 'You won! Waiting for new game...' : 'Game over. Waiting for new game...';
+      setStatus('connected', statusMsg);
+
+      // Update player indicator to show waiting state
+      if (playerSlot === 'player1') {
+        playerIndicator.textContent = isWinner ? 'Player 1 - WINNER!' : 'Player 1 - Waiting...';
+      } else if (playerSlot === 'player2') {
+        playerIndicator.textContent = isWinner ? 'Player 2 - WINNER!' : 'Player 2 - Waiting...';
+      }
+    }
+
+    function handleNewGame() {
+      isWaitingForNewGame = false;
+      setStatus('connected', 'Connected');
+
+      // Restore normal player indicator
+      if (playerSlot === 'player1') {
+        playerIndicator.textContent = 'Player 1 - Left Paddle';
+      } else if (playerSlot === 'player2') {
+        playerIndicator.textContent = 'Player 2 - Right Paddle';
+      }
     }
 
     // ========================================

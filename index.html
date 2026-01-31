@@ -369,6 +369,44 @@
     .pause-end-button:active {
       transform: scale(0.95);
     }
+
+    /* ========================================
+       PLAY AGAIN BUTTON (after game over)
+       ======================================== */
+    .play-again-button {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      background: linear-gradient(145deg, #4ade80, #22c55e);
+      color: #000;
+      border: none;
+      padding: 16px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      border-radius: 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
+      z-index: 10;
+    }
+
+    .play-again-button.visible {
+      display: block;
+    }
+
+    .play-again-button:hover {
+      transform: translateX(-50%) scale(1.05);
+      box-shadow: 0 0 30px rgba(74, 222, 128, 0.6);
+    }
+
+    .play-again-button:active {
+      transform: translateX(-50%) scale(0.95);
+    }
   </style>
 </head>
 <body>
@@ -424,6 +462,9 @@
       <div class="pause-timer" id="pauseTimer">Waiting for reconnect... 30</div>
       <button class="pause-end-button" id="pauseEndButton">End Game</button>
     </div>
+
+    <!-- Play Again Button (shown after game over) -->
+    <button class="play-again-button" id="playAgainButton">Play Again</button>
   </div>
 
   <!-- Sound Toggle Button -->
@@ -479,6 +520,9 @@
     const pauseMessage = document.getElementById('pauseMessage');
     const pauseTimer = document.getElementById('pauseTimer');
     const pauseEndButton = document.getElementById('pauseEndButton');
+
+    // Play Again button
+    const playAgainButton = document.getElementById('playAgainButton');
 
     // ========================================
     // STATE
@@ -813,6 +857,49 @@
         hidePauseOverlay();
         resumeGame();
       }
+    }
+
+    // ========================================
+    // GAME OVER / PLAY AGAIN FUNCTIONS
+    // ========================================
+
+    function showPlayAgainButton() {
+      playAgainButton.classList.add('visible');
+    }
+
+    function hidePlayAgainButton() {
+      playAgainButton.classList.remove('visible');
+    }
+
+    // Send game_over notification to controllers
+    function notifyControllersGameOver(winner) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'game_over',
+          data: { winner }
+        }));
+      }
+    }
+
+    // Send new_game notification to controllers
+    function notifyControllersNewGame() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'new_game',
+          data: {}
+        }));
+      }
+    }
+
+    // Handle Play Again button click
+    function handlePlayAgain() {
+      hidePlayAgainButton();
+
+      // Reset game state using the existing resetGame function
+      resetGame();
+
+      // Notify controllers that a new game is starting
+      notifyControllersNewGame();
     }
 
     // ========================================
@@ -1294,6 +1381,9 @@
           gameState.ballVX = 0;
           gameState.ballVY = 0;
           playVictorySound();
+          // Show Play Again button and notify controllers
+          showPlayAgainButton();
+          notifyControllersGameOver(gameState.winner);
         } else {
           // Play score sound and reset ball after delay
           playScoreSound();
@@ -1450,7 +1540,7 @@
       ctx.shadowBlur = 10;
       ctx.shadowColor = '#0ff';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.fillText('Game Over', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+      ctx.fillText('Press Play Again to rematch', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
 
       ctx.restore();
     }
@@ -1575,6 +1665,11 @@
 
     // Reset game for a new match (for US-010)
     function resetGame() {
+      // Store the loser before resetting (winner = lastScorer = who won the game)
+      // Serve toward the loser: if player1 won (lastScorer), serve toward player2 (1)
+      // If player2 won, serve toward player1 (-1)
+      const serveDirection = gameState.winner === 'player1' ? 1 : -1;
+
       // Reset all state except paddles (keep player positions)
       gameState.ballX = CANVAS_WIDTH / 2;
       gameState.ballY = CANVAS_HEIGHT / 2;
@@ -1587,10 +1682,9 @@
       gameState.isWaitingForReset = false;
       gameState.gameOver = false;
       gameState.winner = null;
+      gameState.lastScorer = null;
 
       // Serve toward the player who lost
-      const serveDirection = gameState.lastScorer === 'player1' ? -1 : 1;
-      gameState.lastScorer = null;
       serveBall(serveDirection);
     }
 
@@ -1610,6 +1704,9 @@
 
     // End Game button click handler
     pauseEndButton.addEventListener('click', handleEndGameClick);
+
+    // Play Again button click handler
+    playAgainButton.addEventListener('click', handlePlayAgain);
 
     // Sound toggle button click handler
     soundToggle.addEventListener('click', () => {
