@@ -589,6 +589,15 @@
               : 'Waiting for Player 1...');
           break;
 
+        case 'paddle_move':
+          // Handle paddle position update from controller
+          // Message includes player identifier and position (0-100)
+          if (message.player && typeof message.data?.position === 'number') {
+            const position = Math.max(0, Math.min(100, message.data.position));
+            setPaddleTargetPosition(message.player, position);
+          }
+          break;
+
         default:
           // Forward other messages to game logic (future stories)
           console.log('Game message:', message);
@@ -685,6 +694,49 @@
 
     // Animation frame ID for cleanup
     let animationFrameId = null;
+
+    // ========================================
+    // PADDLE INTERPOLATION
+    // ========================================
+    // Target positions for smooth interpolation
+    let paddle1TargetY = 50;
+    let paddle2TargetY = 50;
+
+    // Interpolation speed (0-1, higher = faster/snappier)
+    const PADDLE_INTERPOLATION_SPEED = 0.25;
+
+    // Set target position for a paddle (called when receiving paddle_move)
+    function setPaddleTargetPosition(player, position) {
+      if (player === 'player1') {
+        paddle1TargetY = position;
+      } else if (player === 'player2') {
+        paddle2TargetY = position;
+      }
+    }
+
+    // Interpolate paddle positions toward their targets (called each frame)
+    function updatePaddles() {
+      // Linear interpolation for smooth movement
+      const diff1 = paddle1TargetY - gameState.paddle1Y;
+      const diff2 = paddle2TargetY - gameState.paddle2Y;
+
+      // Only update if difference is significant
+      if (Math.abs(diff1) > 0.01) {
+        gameState.paddle1Y += diff1 * PADDLE_INTERPOLATION_SPEED;
+      } else {
+        gameState.paddle1Y = paddle1TargetY;
+      }
+
+      if (Math.abs(diff2) > 0.01) {
+        gameState.paddle2Y += diff2 * PADDLE_INTERPOLATION_SPEED;
+      } else {
+        gameState.paddle2Y = paddle2TargetY;
+      }
+
+      // Clamp to valid range (0-100)
+      gameState.paddle1Y = Math.max(0, Math.min(100, gameState.paddle1Y));
+      gameState.paddle2Y = Math.max(0, Math.min(100, gameState.paddle2Y));
+    }
 
     // ========================================
     // HELPER FUNCTIONS
@@ -1045,6 +1097,9 @@
     }
 
     function gameLoop() {
+      // Update paddle positions (interpolate toward targets)
+      updatePaddles();
+
       // Update ball physics
       updateBall();
 
