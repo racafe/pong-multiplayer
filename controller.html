@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Frogger Controller</title>
+  <title>Pong Controller</title>
   <style>
     * {
       margin: 0;
@@ -19,15 +19,17 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      background: #0a0a0f;
     }
     body {
       display: flex;
       flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Courier New', monospace;
     }
 
-    /* Connection status bar */
+    /* ========================================
+       CONNECTION STATUS BAR
+       ======================================== */
     .status-bar {
       padding: 12px 16px;
       text-align: center;
@@ -56,14 +58,44 @@
       color: #000;
     }
 
-    /* Reconnect overlay */
+    /* ========================================
+       PLAYER INDICATOR
+       ======================================== */
+    .player-indicator {
+      text-align: center;
+      padding: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+    .player-indicator.player1 {
+      color: #4ade80;
+      text-shadow:
+        0 0 10px rgba(74, 222, 128, 0.5),
+        0 0 20px rgba(74, 222, 128, 0.3);
+    }
+    .player-indicator.player2 {
+      color: #f472b6;
+      text-shadow:
+        0 0 10px rgba(244, 114, 182, 0.5),
+        0 0 20px rgba(244, 114, 182, 0.3);
+    }
+    .player-indicator.waiting {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* ========================================
+       RECONNECT OVERLAY
+       ======================================== */
     .reconnect-overlay {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.9);
       display: none;
       flex-direction: column;
       justify-content: center;
@@ -78,6 +110,7 @@
       font-size: 24px;
       font-weight: bold;
       margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
     }
     .reconnect-status {
       color: #888;
@@ -108,7 +141,9 @@
       margin-top: 20px;
     }
 
-    /* Main controller area */
+    /* ========================================
+       MAIN CONTROLLER AREA
+       ======================================== */
     .controller-area {
       flex: 1;
       display: flex;
@@ -119,110 +154,179 @@
       position: relative;
     }
 
-    /* D-pad container */
-    .dpad-container {
-      position: relative;
-      width: 240px;
-      height: 240px;
-    }
-
-    /* D-pad button base styles */
-    .dpad-btn {
-      position: absolute;
-      width: 80px;
-      height: 80px;
-      background: rgba(74, 222, 128, 0.2);
-      border: 3px solid rgba(74, 222, 128, 0.5);
-      border-radius: 16px;
+    /* ========================================
+       VERTICAL SLIDER
+       ======================================== */
+    .slider-container {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      cursor: pointer;
-      transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
-    }
-    .dpad-btn:active,
-    .dpad-btn.pressed {
-      background: rgba(74, 222, 128, 0.6);
-      border-color: #4ade80;
-      transform: scale(0.95);
-      box-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+      width: 100%;
+      max-width: 200px;
+      height: 70%;
+      max-height: 500px;
+      position: relative;
     }
 
-    /* D-pad arrow icons */
-    .dpad-btn svg {
-      width: 40px;
-      height: 40px;
-      fill: #4ade80;
-      transition: fill 0.1s;
-    }
-    .dpad-btn:active svg,
-    .dpad-btn.pressed svg {
-      fill: #fff;
-    }
-
-    /* D-pad button positions */
-    .dpad-up {
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    .dpad-up:active,
-    .dpad-up.pressed {
-      transform: translateX(-50%) scale(0.95);
-    }
-
-    .dpad-down {
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    .dpad-down:active,
-    .dpad-down.pressed {
-      transform: translateX(-50%) scale(0.95);
-    }
-
-    .dpad-left {
-      left: 0;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-    .dpad-left:active,
-    .dpad-left.pressed {
-      transform: translateY(-50%) scale(0.95);
-    }
-
-    .dpad-right {
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-    .dpad-right:active,
-    .dpad-right.pressed {
-      transform: translateY(-50%) scale(0.95);
-    }
-
-    /* Center circle (decorative) */
-    .dpad-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+    .slider-track {
       width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid rgba(255, 255, 255, 0.2);
+      height: 100%;
+      background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0.1) 100%);
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+
+    .slider-track.player1 {
+      border-color: rgba(74, 222, 128, 0.4);
+      box-shadow:
+        0 0 20px rgba(74, 222, 128, 0.2),
+        inset 0 0 20px rgba(74, 222, 128, 0.1);
+    }
+
+    .slider-track.player2 {
+      border-color: rgba(244, 114, 182, 0.4);
+      box-shadow:
+        0 0 20px rgba(244, 114, 182, 0.2),
+        inset 0 0 20px rgba(244, 114, 182, 0.1);
+    }
+
+    .slider-track.active {
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .slider-track.player1.active {
+      border-color: #4ade80;
+      box-shadow:
+        0 0 30px rgba(74, 222, 128, 0.4),
+        inset 0 0 30px rgba(74, 222, 128, 0.2);
+    }
+
+    .slider-track.player2.active {
+      border-color: #f472b6;
+      box-shadow:
+        0 0 30px rgba(244, 114, 182, 0.4),
+        inset 0 0 30px rgba(244, 114, 182, 0.2);
+    }
+
+    /* Fill indicator showing position */
+    .slider-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.3) 0%,
+        rgba(255, 255, 255, 0.1) 100%);
+      border-radius: 0 0 27px 27px;
+      transition: height 0.05s ease-out;
+    }
+
+    .slider-fill.player1 {
+      background: linear-gradient(180deg,
+        rgba(74, 222, 128, 0.5) 0%,
+        rgba(74, 222, 128, 0.2) 100%);
+    }
+
+    .slider-fill.player2 {
+      background: linear-gradient(180deg,
+        rgba(244, 114, 182, 0.5) 0%,
+        rgba(244, 114, 182, 0.2) 100%);
+    }
+
+    /* Slider thumb */
+    .slider-thumb {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      box-shadow:
+        0 0 15px rgba(255, 255, 255, 0.5),
+        0 0 30px rgba(255, 255, 255, 0.3);
+      transition: box-shadow 0.2s;
+      pointer-events: none;
+    }
+
+    .slider-thumb.player1 {
+      background: #4ade80;
+      box-shadow:
+        0 0 15px rgba(74, 222, 128, 0.8),
+        0 0 30px rgba(74, 222, 128, 0.5),
+        inset 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+
+    .slider-thumb.player2 {
+      background: #f472b6;
+      box-shadow:
+        0 0 15px rgba(244, 114, 182, 0.8),
+        0 0 30px rgba(244, 114, 182, 0.5),
+        inset 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+
+    .slider-thumb.active {
+      transform: translateX(-50%) scale(1.1);
+      box-shadow:
+        0 0 25px rgba(255, 255, 255, 0.8),
+        0 0 50px rgba(255, 255, 255, 0.5);
+    }
+
+    .slider-thumb.player1.active {
+      box-shadow:
+        0 0 25px rgba(74, 222, 128, 1),
+        0 0 50px rgba(74, 222, 128, 0.7),
+        inset 0 0 15px rgba(255, 255, 255, 0.5);
+    }
+
+    .slider-thumb.player2.active {
+      box-shadow:
+        0 0 25px rgba(244, 114, 182, 1),
+        0 0 50px rgba(244, 114, 182, 0.7),
+        inset 0 0 15px rgba(255, 255, 255, 0.5);
+    }
+
+    /* Position value display */
+    .position-value {
+      position: absolute;
+      right: -70px;
+      font-size: 24px;
+      font-weight: bold;
+      color: rgba(255, 255, 255, 0.6);
+      min-width: 60px;
+      text-align: left;
+      pointer-events: none;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+
+    .position-value.player1 {
+      color: #4ade80;
+      text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+    }
+
+    .position-value.player2 {
+      color: #f472b6;
+      text-shadow: 0 0 10px rgba(244, 114, 182, 0.5);
     }
 
     /* Instructions text */
     .instructions {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 16px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 14px;
       text-align: center;
-      margin-top: 40px;
+      margin-top: 30px;
+      letter-spacing: 1px;
     }
 
-    /* Room code input overlay */
+    /* ========================================
+       ROOM CODE INPUT OVERLAY
+       ======================================== */
     .room-input-overlay {
       position: fixed;
       top: 0;
@@ -241,11 +345,14 @@
       display: flex;
     }
     .room-input-title {
-      color: #4ade80;
+      color: #0ff;
       font-size: 32px;
       font-weight: bold;
       margin-bottom: 10px;
       text-align: center;
+      text-shadow:
+        0 0 10px rgba(0, 255, 255, 0.5),
+        0 0 20px rgba(0, 255, 255, 0.3);
     }
     .room-input-subtitle {
       color: #888;
@@ -266,11 +373,12 @@
       max-width: 300px;
       height: 60px;
       background: rgba(255, 255, 255, 0.1);
-      border: 3px solid rgba(255, 255, 255, 0.3);
+      border: 3px solid rgba(0, 255, 255, 0.3);
       border-radius: 10px;
       color: #fff;
       font-size: 24px;
       font-weight: bold;
+      font-family: 'Courier New', monospace;
       text-transform: uppercase;
       text-align: center;
       padding: 0 20px;
@@ -278,24 +386,28 @@
     }
     .room-input-text:focus {
       outline: none;
-      border-color: #4ade80;
-      background: rgba(74, 222, 128, 0.1);
+      border-color: #0ff;
+      background: rgba(0, 255, 255, 0.1);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
     }
     .room-input-text::placeholder {
       color: rgba(255, 255, 255, 0.3);
       letter-spacing: 0;
     }
     .room-connect-button {
-      background: linear-gradient(145deg, #4ade80, #22c55e);
+      background: linear-gradient(145deg, #0ff, #00bfbf);
       color: #000;
       border: none;
       padding: 16px 50px;
       font-size: 18px;
       font-weight: bold;
+      font-family: 'Courier New', monospace;
       border-radius: 30px;
       cursor: pointer;
-      transition: transform 0.1s;
+      transition: transform 0.1s, box-shadow 0.1s;
       margin-top: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
     }
     .room-connect-button:active {
       transform: scale(0.95);
@@ -317,9 +429,11 @@
 <body>
   <div class="status-bar connecting" id="statusBar">Connecting...</div>
 
+  <div class="player-indicator waiting" id="playerIndicator">Waiting for game...</div>
+
   <!-- Room code input overlay -->
   <div class="room-input-overlay" id="roomInputOverlay">
-    <div class="room-input-title">Enter Room Code</div>
+    <div class="room-input-title">PONG</div>
     <div class="room-input-subtitle" id="roomInputSubtitle">Enter the 4-character room code</div>
     <div class="room-input-container">
       <input
@@ -345,36 +459,21 @@
   </div>
 
   <div class="controller-area" id="controllerArea">
-    <div class="dpad-container">
-      <!-- Up button -->
-      <button class="dpad-btn dpad-up" data-direction="up">
-        <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
-      </button>
-
-      <!-- Down button -->
-      <button class="dpad-btn dpad-down" data-direction="down">
-        <svg viewBox="0 0 24 24"><path d="M12 20l8-8h-5v-8h-6v8h-5z"/></svg>
-      </button>
-
-      <!-- Left button -->
-      <button class="dpad-btn dpad-left" data-direction="left">
-        <svg viewBox="0 0 24 24"><path d="M4 12l8 8v-5h8v-6h-8v-5z"/></svg>
-      </button>
-
-      <!-- Right button -->
-      <button class="dpad-btn dpad-right" data-direction="right">
-        <svg viewBox="0 0 24 24"><path d="M20 12l-8-8v5h-8v6h8v5z"/></svg>
-      </button>
-
-      <!-- Center decoration -->
-      <div class="dpad-center"></div>
+    <div class="slider-container" id="sliderContainer">
+      <div class="slider-track" id="sliderTrack">
+        <div class="slider-fill" id="sliderFill"></div>
+        <div class="slider-thumb" id="sliderThumb">
+          <span class="position-value" id="positionValue">50</span>
+        </div>
+      </div>
     </div>
-
-    <p class="instructions">Tap to move the frog</p>
+    <p class="instructions">Slide to move your paddle</p>
   </div>
 
   <script type="module">
-    // Configuration
+    // ========================================
+    // CONFIGURATION
+    // ========================================
     const CONTROLLER_HOSTNAME = window.location.hostname;
     const IS_SSL = window.location.protocol === 'https:';
 
@@ -383,16 +482,18 @@
     const IS_IP_HOST = /^[0-9.]+$/.test(CONTROLLER_HOSTNAME);
     const IS_DEV_HOST = CONTROLLER_HOSTNAME === 'localhost' || IS_IP_HOST;
 
-    // WebSocket URL: use same-origin reverse proxy at /ws so we don't need a
-    // dedicated external port (important for PaaS like Coolify).
+    // WebSocket URL: use same-origin reverse proxy at /ws
     const WS_URL = `${IS_SSL ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
     // Get room code from URL
     const urlParams = new URLSearchParams(window.location.search);
     let roomCode = urlParams.get('room');
 
-    // DOM elements
+    // ========================================
+    // DOM ELEMENTS
+    // ========================================
     const statusBar = document.getElementById('statusBar');
+    const playerIndicator = document.getElementById('playerIndicator');
     const roomInputOverlay = document.getElementById('roomInputOverlay');
     const roomInputText = document.getElementById('roomInputText');
     const roomConnectButton = document.getElementById('roomConnectButton');
@@ -404,11 +505,24 @@
     const reconnectStatus = document.getElementById('reconnectStatus');
     const reconnectButton = document.getElementById('reconnectButton');
     const reconnectAttempts = document.getElementById('reconnectAttempts');
-    const dpadButtons = document.querySelectorAll('.dpad-btn');
 
-    // State
+    // Slider elements
+    const sliderContainer = document.getElementById('sliderContainer');
+    const sliderTrack = document.getElementById('sliderTrack');
+    const sliderFill = document.getElementById('sliderFill');
+    const sliderThumb = document.getElementById('sliderThumb');
+    const positionValue = document.getElementById('positionValue');
+
+    // ========================================
+    // STATE
+    // ========================================
     let ws = null;
     let isConnected = false;
+    let playerSlot = null;  // 'player1' or 'player2'
+
+    // Slider state
+    let currentPosition = 50;  // 0-100 (bottom to top)
+    let isDragging = false;
 
     // Reconnection state
     let reconnectAttemptCount = 0;
@@ -417,13 +531,161 @@
     const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
     const RECONNECT_INTERVAL_MS = 2000;
 
-    // Update connection status UI
+    // ========================================
+    // STATUS UI FUNCTIONS
+    // ========================================
+
     function setStatus(status, message) {
       statusBar.className = 'status-bar ' + status;
       statusBar.textContent = message;
     }
 
-    // Show/hide reconnect overlay
+    function setPlayerIndicator(slot) {
+      playerSlot = slot;
+      playerIndicator.className = 'player-indicator';
+
+      if (slot === 'player1') {
+        playerIndicator.classList.add('player1');
+        playerIndicator.textContent = 'Player 1 - Left Paddle';
+        updateSliderColors('player1');
+      } else if (slot === 'player2') {
+        playerIndicator.classList.add('player2');
+        playerIndicator.textContent = 'Player 2 - Right Paddle';
+        updateSliderColors('player2');
+      } else {
+        playerIndicator.classList.add('waiting');
+        playerIndicator.textContent = 'Waiting for game...';
+        updateSliderColors(null);
+      }
+    }
+
+    function updateSliderColors(slot) {
+      // Remove existing player classes
+      sliderTrack.classList.remove('player1', 'player2');
+      sliderFill.classList.remove('player1', 'player2');
+      sliderThumb.classList.remove('player1', 'player2');
+      positionValue.classList.remove('player1', 'player2');
+
+      // Add new player class if assigned
+      if (slot) {
+        sliderTrack.classList.add(slot);
+        sliderFill.classList.add(slot);
+        sliderThumb.classList.add(slot);
+        positionValue.classList.add(slot);
+      }
+    }
+
+    // ========================================
+    // SLIDER FUNCTIONS
+    // ========================================
+
+    function updateSliderPosition(position) {
+      currentPosition = Math.max(0, Math.min(100, position));
+
+      // Calculate thumb position (inverted: 0 = bottom, 100 = top)
+      const trackRect = sliderTrack.getBoundingClientRect();
+      const thumbHeight = 40;
+      const usableHeight = trackRect.height - thumbHeight;
+      const topOffset = (1 - currentPosition / 100) * usableHeight;
+
+      sliderThumb.style.top = `${topOffset}px`;
+      sliderFill.style.height = `${currentPosition}%`;
+      positionValue.textContent = Math.round(currentPosition);
+    }
+
+    function handleSliderStart(clientY) {
+      isDragging = true;
+      sliderTrack.classList.add('active');
+      sliderThumb.classList.add('active');
+      updateSliderFromClient(clientY);
+    }
+
+    function handleSliderMove(clientY) {
+      if (!isDragging) return;
+      updateSliderFromClient(clientY);
+    }
+
+    function handleSliderEnd() {
+      isDragging = false;
+      sliderTrack.classList.remove('active');
+      sliderThumb.classList.remove('active');
+    }
+
+    function updateSliderFromClient(clientY) {
+      const trackRect = sliderTrack.getBoundingClientRect();
+      const thumbHeight = 40;
+      const usableTop = trackRect.top + thumbHeight / 2;
+      const usableHeight = trackRect.height - thumbHeight;
+
+      // Calculate position (0 = bottom, 100 = top)
+      const relativeY = clientY - usableTop;
+      const normalizedY = relativeY / usableHeight;
+      const position = (1 - normalizedY) * 100;
+
+      const newPosition = Math.max(0, Math.min(100, position));
+
+      // Only update and send if position changed significantly
+      if (Math.abs(newPosition - currentPosition) > 0.5) {
+        updateSliderPosition(newPosition);
+        sendPaddlePosition(newPosition);
+      }
+    }
+
+    function sendPaddlePosition(position) {
+      if (ws && ws.readyState === WebSocket.OPEN && isConnected) {
+        ws.send(JSON.stringify({
+          type: 'paddle_move',
+          data: { position: Math.round(position) }
+        }));
+      }
+    }
+
+    // ========================================
+    // SLIDER EVENT LISTENERS
+    // ========================================
+
+    // Touch events
+    sliderTrack.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleSliderStart(touch.clientY);
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleSliderMove(touch.clientY);
+    }, { passive: false });
+
+    document.addEventListener('touchend', (e) => {
+      handleSliderEnd();
+    }, { passive: false });
+
+    document.addEventListener('touchcancel', (e) => {
+      handleSliderEnd();
+    }, { passive: false });
+
+    // Mouse events (for desktop testing)
+    sliderTrack.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handleSliderStart(e.clientY);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      handleSliderMove(e.clientY);
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      handleSliderEnd();
+    });
+
+    // ========================================
+    // RECONNECT OVERLAY FUNCTIONS
+    // ========================================
+
     function showReconnectOverlay(title, status, showButton = false) {
       reconnectTitle.textContent = title;
       reconnectStatus.textContent = status;
@@ -441,7 +703,7 @@
       }
     }
 
-    function updateReconnectAttempts() {
+    function updateReconnectAttemptsDisplay() {
       if (reconnectAttemptCount > 0) {
         reconnectAttempts.textContent = `Attempt ${reconnectAttemptCount} of ${MAX_AUTO_RECONNECT_ATTEMPTS}`;
       } else {
@@ -449,7 +711,10 @@
       }
     }
 
-    // Show room input overlay
+    // ========================================
+    // ROOM INPUT FUNCTIONS
+    // ========================================
+
     function showRoomInput(subtitle = 'Enter the 4-character room code') {
       roomInputSubtitle.textContent = subtitle;
       roomInputText.value = '';
@@ -457,18 +722,17 @@
       roomInputOverlay.classList.add('visible');
       controllerArea.style.display = 'none';
       setStatus('disconnected', 'Enter room code');
+      setPlayerIndicator(null);
       setTimeout(() => {
         roomInputText.focus();
       }, 100);
     }
 
-    // Hide room input overlay
     function hideRoomInput() {
       roomInputOverlay.classList.remove('visible');
       controllerArea.style.display = 'flex';
     }
 
-    // Handle room code input and connection
     function handleRoomCodeSubmit() {
       const inputValue = roomInputText.value.trim().toUpperCase();
 
@@ -488,7 +752,10 @@
       connect();
     }
 
-    // Connect to WebSocket server
+    // ========================================
+    // WEBSOCKET CONNECTION
+    // ========================================
+
     function connect(isReconnect = false) {
       if (!roomCode) {
         showRoomInput();
@@ -504,12 +771,14 @@
       ws = new WebSocket(WS_URL);
 
       ws.onopen = () => {
-        if (isReconnect) {
+        if (isReconnect && playerSlot) {
+          // Reconnect with player slot info
           ws.send(JSON.stringify({
             type: 'reconnect',
-            data: { roomCode, clientType: 'phone' }
+            data: { roomCode, clientType: playerSlot }
           }));
         } else {
+          // Initial join
           ws.send(JSON.stringify({
             type: 'join_room',
             data: { roomCode }
@@ -536,7 +805,10 @@
       };
     }
 
-    // Handle connection loss and auto-reconnect
+    // ========================================
+    // CONNECTION LOSS HANDLING
+    // ========================================
+
     function handleConnectionLost() {
       if (isReconnecting) return;
 
@@ -559,7 +831,7 @@
       }
 
       reconnectAttemptCount++;
-      updateReconnectAttempts();
+      updateReconnectAttemptsDisplay();
       reconnectStatus.textContent = 'Attempting to reconnect...';
 
       reconnectTimer = setTimeout(() => {
@@ -575,7 +847,6 @@
       }, reconnectAttemptCount === 1 ? 0 : RECONNECT_INTERVAL_MS);
     }
 
-    // Manual reconnect button handler
     function manualReconnect() {
       reconnectButton.disabled = true;
       reconnectStatus.textContent = 'Connecting...';
@@ -588,19 +859,32 @@
       }, 2000);
     }
 
-    // Handle incoming WebSocket messages
+    // ========================================
+    // MESSAGE HANDLING
+    // ========================================
+
     function handleMessage(message) {
       switch (message.type) {
         case 'room_joined':
           isConnected = true;
           setStatus('connected', 'Connected');
           hideReconnectOverlay();
+          // Player slot is sent in the message
+          if (message.data?.playerSlot) {
+            setPlayerIndicator(message.data.playerSlot);
+          }
           break;
+
         case 'reconnected':
           isConnected = true;
           setStatus('connected', 'Reconnected');
           hideReconnectOverlay();
+          // Restore player slot if provided
+          if (message.data?.playerSlot) {
+            setPlayerIndicator(message.data.playerSlot);
+          }
           break;
+
         case 'error':
           setStatus('error', message.data?.message || 'Error');
           const errorMsg = message.data?.message || '';
@@ -612,23 +896,26 @@
             }
             isConnected = false;
             roomCode = null;
+            playerSlot = null;
             hideReconnectOverlay();
             showRoomInput('Room not found or expired. Enter a new room code');
           }
           break;
+
         case 'peer_disconnected':
-          setStatus('disconnected', 'Game disconnected');
+          setStatus('disconnected', 'Opponent disconnected');
           break;
+
         case 'peer_reconnected':
           setStatus('connected', 'Connected');
           break;
+
         case 'room_closed':
           handleRoomClosed();
           break;
       }
     }
 
-    // Handle room closed
     function handleRoomClosed() {
       if (ws) {
         ws.close();
@@ -636,59 +923,25 @@
       }
       isConnected = false;
       roomCode = null;
+      playerSlot = null;
       showRoomInput('Game ended. Enter a new room code to play again');
     }
 
-    // Send direction command to game
-    function sendDirection(direction) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'direction',
-          data: { direction }
-        }));
-      }
-    }
+    // ========================================
+    // GLOBAL EVENT PREVENTION
+    // ========================================
 
-    // D-pad button handlers
-    function handleButtonPress(e) {
-      e.preventDefault();
-      const btn = e.currentTarget;
-      const direction = btn.dataset.direction;
-
-      if (direction && isConnected) {
-        btn.classList.add('pressed');
-        sendDirection(direction);
-      }
-    }
-
-    function handleButtonRelease(e) {
-      e.preventDefault();
-      const btn = e.currentTarget;
-      btn.classList.remove('pressed');
-    }
-
-    // Attach event listeners to D-pad buttons
-    dpadButtons.forEach(btn => {
-      // Touch events
-      btn.addEventListener('touchstart', handleButtonPress, { passive: false });
-      btn.addEventListener('touchend', handleButtonRelease, { passive: false });
-      btn.addEventListener('touchcancel', handleButtonRelease, { passive: false });
-
-      // Mouse events for desktop testing
-      btn.addEventListener('mousedown', handleButtonPress);
-      btn.addEventListener('mouseup', handleButtonRelease);
-      btn.addEventListener('mouseleave', handleButtonRelease);
-    });
-
-    // Prevent default touch behaviors on the whole document
+    // Prevent default touch behaviors
     document.addEventListener('touchmove', (e) => {
+      // Allow scrolling in room input overlay
+      if (roomInputOverlay.classList.contains('visible')) return;
       e.preventDefault();
     }, { passive: false });
 
     // Prevent context menu on long press
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Prevent scrolling/zooming
+    // Prevent scrolling/zooming gestures
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     document.addEventListener('gesturechange', (e) => e.preventDefault());
     document.addEventListener('gestureend', (e) => e.preventDefault());
@@ -717,6 +970,13 @@
     });
 
     roomConnectButton.addEventListener('click', handleRoomCodeSubmit);
+
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+
+    // Set initial slider position
+    updateSliderPosition(50);
 
     // Initialize - show room input if no room code in URL, otherwise connect
     if (!roomCode) {
