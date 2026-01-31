@@ -292,6 +292,83 @@
     .sound-toggle.muted svg {
       fill: #ff6b6b;
     }
+
+    /* ========================================
+       PAUSE OVERLAY (for disconnect)
+       ======================================== */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 50;
+    }
+
+    .pause-overlay.visible {
+      display: flex;
+    }
+
+    .pause-title {
+      font-size: 48px;
+      font-weight: bold;
+      color: #f59e0b;
+      text-shadow:
+        0 0 20px rgba(245, 158, 11, 0.8),
+        0 0 40px rgba(245, 158, 11, 0.4);
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .pause-message {
+      font-size: 24px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .pause-timer {
+      font-size: 36px;
+      font-weight: bold;
+      color: #0ff;
+      text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+      margin-bottom: 30px;
+    }
+
+    .pause-end-button {
+      display: none;
+      background: linear-gradient(145deg, #ef4444, #dc2626);
+      color: #fff;
+      border: none;
+      padding: 16px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      border-radius: 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    }
+
+    .pause-end-button.visible {
+      display: block;
+    }
+
+    .pause-end-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.6);
+    }
+
+    .pause-end-button:active {
+      transform: scale(0.95);
+    }
   </style>
 </head>
 <body>
@@ -339,6 +416,14 @@
   <!-- Game Area (hidden until both players connect) -->
   <div class="game-area" id="gameArea">
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Pause Overlay (for disconnect) -->
+    <div class="pause-overlay" id="pauseOverlay">
+      <div class="pause-title" id="pauseTitle">PAUSED</div>
+      <div class="pause-message" id="pauseMessage">Player 1 Disconnected</div>
+      <div class="pause-timer" id="pauseTimer">Waiting for reconnect... 30</div>
+      <button class="pause-end-button" id="pauseEndButton">End Game</button>
+    </div>
   </div>
 
   <!-- Sound Toggle Button -->
@@ -388,6 +473,13 @@
     const player2Status = document.getElementById('player2Status');
     const soundToggle = document.getElementById('soundToggle');
 
+    // Pause overlay elements
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const pauseTitle = document.getElementById('pauseTitle');
+    const pauseMessage = document.getElementById('pauseMessage');
+    const pauseTimer = document.getElementById('pauseTimer');
+    const pauseEndButton = document.getElementById('pauseEndButton');
+
     // ========================================
     // STATE
     // ========================================
@@ -396,6 +488,12 @@
     let isConnected = false;
     let player1Connected = false;
     let player2Connected = false;
+
+    // Disconnect/pause state
+    let isGameInProgress = false;      // True once game starts (both players connected)
+    let disconnectedPlayer = null;      // 'player1' or 'player2' if someone disconnected
+    let disconnectTimerId = null;       // Timer for 30-second countdown
+    let disconnectSecondsRemaining = 0; // Countdown seconds
 
     // ========================================
     // STATUS DISPLAY FUNCTIONS
@@ -561,18 +659,34 @@
 
         case 'player1_disconnected':
           updatePlayerStatus('player1', false);
+          // Handle disconnect during gameplay
+          if (isGameInProgress) {
+            handlePlayerDisconnectDuringGame('player1');
+          }
           break;
 
         case 'player2_disconnected':
           updatePlayerStatus('player2', false);
+          // Handle disconnect during gameplay
+          if (isGameInProgress) {
+            handlePlayerDisconnectDuringGame('player2');
+          }
           break;
 
         case 'player1_reconnected':
           updatePlayerStatus('player1', true);
+          // Handle reconnect during gameplay
+          if (isGameInProgress) {
+            handlePlayerReconnectDuringGame('player1');
+          }
           break;
 
         case 'player2_reconnected':
           updatePlayerStatus('player2', true);
+          // Handle reconnect during gameplay
+          if (isGameInProgress) {
+            handlePlayerReconnectDuringGame('player2');
+          }
           break;
 
         case 'error':
@@ -606,6 +720,102 @@
     }
 
     // ========================================
+    // PAUSE OVERLAY FUNCTIONS
+    // ========================================
+
+    const DISCONNECT_TIMEOUT_SECONDS = 30;
+
+    function showPauseOverlay(playerName) {
+      disconnectedPlayer = playerName;
+      disconnectSecondsRemaining = DISCONNECT_TIMEOUT_SECONDS;
+
+      // Update overlay content
+      pauseTitle.textContent = 'PAUSED';
+      pauseMessage.textContent = `${playerName === 'player1' ? 'Player 1' : 'Player 2'} Disconnected`;
+      updatePauseTimerDisplay();
+      pauseEndButton.classList.remove('visible');
+
+      // Show overlay and pause game
+      pauseOverlay.classList.add('visible');
+      pauseGame();
+
+      // Start countdown timer
+      startDisconnectTimer();
+    }
+
+    function hidePauseOverlay() {
+      pauseOverlay.classList.remove('visible');
+      pauseEndButton.classList.remove('visible');
+      stopDisconnectTimer();
+      disconnectedPlayer = null;
+    }
+
+    function updatePauseTimerDisplay() {
+      pauseTimer.textContent = `Waiting for reconnect... ${disconnectSecondsRemaining}`;
+    }
+
+    function startDisconnectTimer() {
+      stopDisconnectTimer(); // Clear any existing timer
+
+      disconnectTimerId = setInterval(() => {
+        disconnectSecondsRemaining--;
+        updatePauseTimerDisplay();
+
+        if (disconnectSecondsRemaining <= 0) {
+          // Show end game button after timeout
+          pauseTimer.textContent = 'Reconnect timed out';
+          pauseEndButton.classList.add('visible');
+          stopDisconnectTimer();
+        }
+      }, 1000);
+    }
+
+    function stopDisconnectTimer() {
+      if (disconnectTimerId) {
+        clearInterval(disconnectTimerId);
+        disconnectTimerId = null;
+      }
+    }
+
+    function handleEndGameClick() {
+      // End the game and return to connection screen
+      hidePauseOverlay();
+      stopGameLoop();
+      isGameInProgress = false;
+      player1Connected = false;
+      player2Connected = false;
+
+      // Reset game state
+      gameState.gameOver = true;
+      gameState.winner = null;
+
+      // Show connection screen
+      gameArea.classList.remove('visible');
+      soundToggle.classList.remove('visible');
+      connectionScreen.style.display = 'flex';
+
+      // Reset player statuses
+      updatePlayerStatus('player1', false);
+      updatePlayerStatus('player2', false);
+      setMainStatus('Game ended. Waiting for players...');
+    }
+
+    function handlePlayerDisconnectDuringGame(player) {
+      if (!isGameInProgress || gameState.gameOver) return;
+
+      // Show pause overlay
+      showPauseOverlay(player);
+    }
+
+    function handlePlayerReconnectDuringGame(player) {
+      // Only resume if this was the disconnected player
+      if (disconnectedPlayer === player) {
+        hidePauseOverlay();
+        resumeGame();
+      }
+    }
+
+    // ========================================
     // GAME AREA TRANSITION
     // ========================================
 
@@ -613,6 +823,9 @@
       connectionScreen.style.display = 'none';
       gameArea.classList.add('visible');
       soundToggle.classList.add('visible');
+
+      // Mark game as in progress
+      isGameInProgress = true;
 
       // Initialize game canvas (placeholder for US-003)
       initGameCanvas();
@@ -1229,6 +1442,13 @@
     function getWinner() {
       return gameState.winner;
     }
+
+    // ========================================
+    // EVENT LISTENERS
+    // ========================================
+
+    // End Game button click handler
+    pauseEndButton.addEventListener('click', handleEndGameClick);
 
     // ========================================
     // INITIALIZE
