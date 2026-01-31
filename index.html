@@ -827,6 +827,9 @@
       // Mark game as in progress
       isGameInProgress = true;
 
+      // Initialize audio context (for sound effects)
+      initAudioContext();
+
       // Initialize game canvas (placeholder for US-003)
       initGameCanvas();
     }
@@ -909,6 +912,158 @@
     let animationFrameId = null;
 
     // ========================================
+    // SOUND SYSTEM (Web Audio API)
+    // ========================================
+    let audioContext = null;
+    let soundEnabled = true;  // Sounds on by default
+
+    // Initialize audio context (must be called after user interaction)
+    function initAudioContext() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      // Resume if suspended (browser autoplay policy)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }
+
+    // Play a tone with given frequency, duration, and optional type
+    function playTone(frequency, duration, type = 'square', volume = 0.3) {
+      if (!soundEnabled || !audioContext) return;
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+      // Quick attack, sustain, then fade out
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + duration - 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    }
+
+    // Sound effect: Ball hits paddle (high beep)
+    function playPaddleHitSound() {
+      playTone(440, 0.1, 'square', 0.25);  // A4 note, short beep
+    }
+
+    // Sound effect: Ball hits wall (lower beep)
+    function playWallHitSound() {
+      playTone(220, 0.08, 'square', 0.2);  // A3 note, shorter lower beep
+    }
+
+    // Sound effect: Point scored (longer descending tone)
+    function playScoreSound() {
+      if (!soundEnabled || !audioContext) return;
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'square';
+      // Descending pitch from C5 to C4
+      oscillator.frequency.setValueAtTime(523, audioContext.currentTime);
+      oscillator.frequency.linearRampToValueAtTime(262, audioContext.currentTime + 0.3);
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.4);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.4);
+    }
+
+    // Sound effect: Victory jingle (ascending arpeggio)
+    function playVictorySound() {
+      if (!soundEnabled || !audioContext) return;
+
+      // Play ascending notes: C5 -> E5 -> G5 -> C6
+      const notes = [523, 659, 784, 1047];  // C5, E5, G5, C6
+      const noteDuration = 0.15;
+      const gap = 0.12;
+
+      notes.forEach((freq, index) => {
+        const startTime = audioContext.currentTime + index * gap;
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(freq, startTime);
+
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+        gainNode.gain.linearRampToValueAtTime(0.3, startTime + noteDuration - 0.03);
+        gainNode.gain.linearRampToValueAtTime(0, startTime + noteDuration);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start(startTime);
+        oscillator.stop(startTime + noteDuration);
+      });
+
+      // Final sustained chord
+      const chordTime = audioContext.currentTime + notes.length * gap;
+      [523, 659, 784, 1047].forEach((freq) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = 'triangle';  // Softer sound for chord
+        oscillator.frequency.setValueAtTime(freq, chordTime);
+
+        gainNode.gain.setValueAtTime(0, chordTime);
+        gainNode.gain.linearRampToValueAtTime(0.15, chordTime + 0.05);
+        gainNode.gain.linearRampToValueAtTime(0.15, chordTime + 0.4);
+        gainNode.gain.linearRampToValueAtTime(0, chordTime + 0.7);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start(chordTime);
+        oscillator.stop(chordTime + 0.7);
+      });
+    }
+
+    // Toggle sound on/off
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      updateSoundToggleUI();
+
+      // Play a confirmation beep when enabling sound
+      if (soundEnabled) {
+        initAudioContext();
+        playTone(880, 0.1, 'sine', 0.2);  // High A, soft sine wave
+      }
+    }
+
+    // Update sound toggle button appearance
+    function updateSoundToggleUI() {
+      const soundOnIcon = document.getElementById('soundOnIcon');
+      const soundOffIcon = document.getElementById('soundOffIcon');
+
+      if (soundEnabled) {
+        soundToggle.classList.remove('muted');
+        soundOnIcon.style.display = 'block';
+        soundOffIcon.style.display = 'none';
+      } else {
+        soundToggle.classList.add('muted');
+        soundOnIcon.style.display = 'none';
+        soundOffIcon.style.display = 'block';
+      }
+    }
+
+    // ========================================
     // PADDLE INTERPOLATION
     // ========================================
     // Target positions for smooth interpolation
@@ -984,12 +1139,14 @@
       if (gameState.ballY - BALL_RADIUS <= 0) {
         gameState.ballY = BALL_RADIUS;
         gameState.ballVY = -gameState.ballVY;
+        playWallHitSound();
         return true;
       }
       // Bottom wall
       if (gameState.ballY + BALL_RADIUS >= CANVAS_HEIGHT) {
         gameState.ballY = CANVAS_HEIGHT - BALL_RADIUS;
         gameState.ballVY = -gameState.ballVY;
+        playWallHitSound();
         return true;
       }
       return false;
@@ -1033,6 +1190,7 @@
 
           // Ensure ball is outside paddle
           gameState.ballX = paddle1X + PADDLE_WIDTH + BALL_RADIUS;
+          playPaddleHitSound();
           return true;
         }
       }
@@ -1052,6 +1210,7 @@
 
           // Ensure ball is outside paddle
           gameState.ballX = paddle2X - BALL_RADIUS;
+          playPaddleHitSound();
           return true;
         }
       }
@@ -1131,11 +1290,13 @@
       const scorer = checkScoring();
       if (scorer) {
         if (checkGameOver()) {
-          // Game over - stop ball
+          // Game over - stop ball and play victory sound
           gameState.ballVX = 0;
           gameState.ballVY = 0;
+          playVictorySound();
         } else {
-          // Reset ball after delay
+          // Play score sound and reset ball after delay
+          playScoreSound();
           resetBallAfterScore(scorer);
         }
       }
@@ -1449,6 +1610,12 @@
 
     // End Game button click handler
     pauseEndButton.addEventListener('click', handleEndGameClick);
+
+    // Sound toggle button click handler
+    soundToggle.addEventListener('click', () => {
+      initAudioContext();  // Ensure audio context is ready
+      toggleSound();
+    });
 
     // ========================================
     // INITIALIZE
