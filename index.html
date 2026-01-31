@@ -610,64 +610,271 @@
     }
 
     // ========================================
-    // GAME CANVAS INITIALIZATION (Placeholder)
+    // GAME CANVAS & RENDERING
     // ========================================
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Pong canvas dimensions
+    // Canvas dimensions
     const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 600;
 
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
 
-    function initGameCanvas() {
-      // Draw a placeholder screen indicating game is ready
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // ========================================
+    // GAME CONSTANTS
+    // ========================================
+    const PADDLE_WIDTH = 15;
+    const PADDLE_HEIGHT = 100;
+    const PADDLE_OFFSET = 30;  // Distance from edge
+    const BALL_RADIUS = 10;
+    const CENTER_LINE_DASH = [20, 15];
+    const CENTER_LINE_WIDTH = 4;
 
-      // Draw center line (dashed)
-      ctx.strokeStyle = '#0ff';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([20, 15]);
+    // Neon colors
+    const COLORS = {
+      background: '#0a0a0f',
+      player1: '#4ade80',      // Neon green
+      player2: '#f472b6',      // Neon pink/magenta
+      ball: '#ffffff',
+      centerLine: '#0ff',      // Cyan
+      score: '#ffffff'
+    };
+
+    // ========================================
+    // GAME STATE
+    // ========================================
+    const gameState = {
+      // Paddle positions (y-coordinate of center, 0-100 normalized)
+      paddle1Y: 50,  // Player 1 (left)
+      paddle2Y: 50,  // Player 2 (right)
+
+      // Ball position (center of canvas initially)
+      ballX: CANVAS_WIDTH / 2,
+      ballY: CANVAS_HEIGHT / 2,
+
+      // Scores
+      score1: 0,
+      score2: 0,
+
+      // Game running state
+      isRunning: false,
+      isPaused: false
+    };
+
+    // Animation frame ID for cleanup
+    let animationFrameId = null;
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    // Convert normalized paddle position (0-100) to canvas Y coordinate
+    function paddleYToCanvas(normalizedY) {
+      // 0 = bottom, 100 = top (inverted for canvas)
+      const playableHeight = CANVAS_HEIGHT - PADDLE_HEIGHT;
+      return playableHeight - (normalizedY / 100) * playableHeight;
+    }
+
+    // ========================================
+    // RENDERING FUNCTIONS
+    // ========================================
+
+    function clearCanvas() {
+      ctx.fillStyle = COLORS.background;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    function drawCenterLine() {
+      ctx.save();
+      ctx.strokeStyle = COLORS.centerLine;
+      ctx.lineWidth = CENTER_LINE_WIDTH;
+      ctx.setLineDash(CENTER_LINE_DASH);
+
+      // Add subtle glow effect
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = COLORS.centerLine;
+
       ctx.beginPath();
       ctx.moveTo(CANVAS_WIDTH / 2, 0);
       ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
       ctx.stroke();
-      ctx.setLineDash([]);
 
-      // Draw placeholder paddles
-      ctx.shadowBlur = 20;
+      ctx.restore();
+    }
 
-      // Player 1 paddle (left, green)
-      ctx.fillStyle = '#4ade80';
-      ctx.shadowColor = '#4ade80';
-      ctx.fillRect(30, CANVAS_HEIGHT / 2 - 50, 15, 100);
+    function drawPaddle(x, y, color) {
+      ctx.save();
 
-      // Player 2 paddle (right, pink)
-      ctx.fillStyle = '#f472b6';
-      ctx.shadowColor = '#f472b6';
-      ctx.fillRect(CANVAS_WIDTH - 45, CANVAS_HEIGHT / 2 - 50, 15, 100);
+      // Multi-layer glow for neon effect
+      ctx.shadowBlur = 25;
+      ctx.shadowColor = color;
+      ctx.fillStyle = color;
 
-      // Draw ball
-      ctx.fillStyle = '#fff';
-      ctx.shadowColor = '#fff';
+      // Draw paddle
+      ctx.fillRect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+      // Add brighter inner glow by drawing again with less blur
+      ctx.shadowBlur = 10;
+      ctx.fillRect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+      // Draw bright core
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x + 3, y + 3, PADDLE_WIDTH - 6, PADDLE_HEIGHT - 6);
+
+      ctx.restore();
+    }
+
+    function drawPlayer1Paddle() {
+      const x = PADDLE_OFFSET;
+      const y = paddleYToCanvas(gameState.paddle1Y);
+      drawPaddle(x, y, COLORS.player1);
+    }
+
+    function drawPlayer2Paddle() {
+      const x = CANVAS_WIDTH - PADDLE_OFFSET - PADDLE_WIDTH;
+      const y = paddleYToCanvas(gameState.paddle2Y);
+      drawPaddle(x, y, COLORS.player2);
+    }
+
+    function drawBall() {
+      ctx.save();
+
+      // Outer glow
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = COLORS.ball;
+      ctx.fillStyle = COLORS.ball;
+
       ctx.beginPath();
-      ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 10, 0, Math.PI * 2);
+      ctx.arc(gameState.ballX, gameState.ballY, BALL_RADIUS, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.shadowBlur = 0;
+      // Inner bright glow
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(gameState.ballX, gameState.ballY, BALL_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
 
-      // Draw "READY" text
-      ctx.font = 'bold 48px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#0ff';
-      ctx.shadowBlur = 20;
-      ctx.shadowColor = '#0ff';
-      ctx.fillText('READY', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+      // Bright core
       ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(gameState.ballX, gameState.ballY, BALL_RADIUS * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawScores() {
+      ctx.save();
+
+      const scoreY = 70;
+      const scoreSize = 64;
+
+      ctx.font = `bold ${scoreSize}px "Courier New", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Player 1 score (left side, green tint)
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = COLORS.player1;
+      ctx.fillStyle = COLORS.score;
+      ctx.fillText(gameState.score1.toString(), CANVAS_WIDTH / 4, scoreY);
+
+      // Player 2 score (right side, pink tint)
+      ctx.shadowColor = COLORS.player2;
+      ctx.fillText(gameState.score2.toString(), (CANVAS_WIDTH / 4) * 3, scoreY);
+
+      ctx.restore();
+    }
+
+    function render() {
+      // Clear and redraw everything
+      clearCanvas();
+      drawCenterLine();
+      drawScores();
+      drawPlayer1Paddle();
+      drawPlayer2Paddle();
+      drawBall();
+    }
+
+    function gameLoop() {
+      render();
+
+      // Continue loop if game is running
+      if (gameState.isRunning) {
+        animationFrameId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function startGameLoop() {
+      if (!gameState.isRunning) {
+        gameState.isRunning = true;
+        gameLoop();
+      }
+    }
+
+    function stopGameLoop() {
+      gameState.isRunning = false;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    }
+
+    // ========================================
+    // GAME INITIALIZATION
+    // ========================================
+
+    function initGameCanvas() {
+      // Reset game state
+      gameState.paddle1Y = 50;
+      gameState.paddle2Y = 50;
+      gameState.ballX = CANVAS_WIDTH / 2;
+      gameState.ballY = CANVAS_HEIGHT / 2;
+      gameState.score1 = 0;
+      gameState.score2 = 0;
+      gameState.isPaused = false;
+
+      // Initial render
+      render();
+
+      // Start the game loop
+      startGameLoop();
+    }
+
+    // ========================================
+    // EXTERNAL API (for other stories)
+    // ========================================
+
+    // Update paddle position from controller input (0-100)
+    function updatePaddlePosition(player, position) {
+      if (player === 'player1') {
+        gameState.paddle1Y = Math.max(0, Math.min(100, position));
+      } else if (player === 'player2') {
+        gameState.paddle2Y = Math.max(0, Math.min(100, position));
+      }
+    }
+
+    // Update ball position (for physics/game logic in US-004)
+    function updateBallPosition(x, y) {
+      gameState.ballX = x;
+      gameState.ballY = y;
+    }
+
+    // Update scores (for game logic in US-004)
+    function updateScores(score1, score2) {
+      gameState.score1 = score1;
+      gameState.score2 = score2;
+    }
+
+    // Get current game state (for external access)
+    function getGameState() {
+      return { ...gameState };
     }
 
     // ========================================
@@ -679,6 +886,24 @@
     // Export functions for external use / debugging
     window.showGameArea = showGameArea;
     window.updatePlayerStatus = updatePlayerStatus;
+
+    // Export game rendering API (for US-004, US-005, etc.)
+    window.pongGame = {
+      updatePaddlePosition,
+      updateBallPosition,
+      updateScores,
+      getGameState,
+      startGameLoop,
+      stopGameLoop,
+      render,
+      // Constants exposed for external use
+      CANVAS_WIDTH,
+      CANVAS_HEIGHT,
+      PADDLE_WIDTH,
+      PADDLE_HEIGHT,
+      PADDLE_OFFSET,
+      BALL_RADIUS
+    };
 
     // Debug: Allow transitioning to game from console
     window.debugStartGame = function() {
