@@ -1410,6 +1410,13 @@
       }
     }
 
+    function clearGameEndMessageTimeout() {
+      if (gameEndMessageTimeoutId) {
+        clearTimeout(gameEndMessageTimeoutId);
+        gameEndMessageTimeoutId = null;
+      }
+    }
+
     // ========================================
     // RENDERING FUNCTIONS
     // ========================================
